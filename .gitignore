@@ -1,0 +1,45 @@
+.gradle
+.idea
+*.iml
+.externalNativeBuild
+.cxx
+local.properties
+
+# Build output
+build/
+*/build/
+*.apk
+*.ap_
+*.aab
+
+# Log Files
+*.log
+
+# Android Studio
+captures/
+.navigation/
+output.json
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services
+google-services.json
+
+# Freeline
+freeline.py
+freeline/
+freeline_project_description.json
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# Version control
+*.swp
+*~
+.DS_Store
