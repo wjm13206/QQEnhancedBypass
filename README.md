@@ -255,8 +255,8 @@ lsposed, libriru, zygisk, frida, libsubstrate...
 ## 参考资料
 
 本项目基于对 QQ 检测机制的深度分析，详见：
-- `E:\QQ_HOOK\1.txt` - QQ 检测机制全景分析报告
-- `E:\QQ_HOOK\项目总结.txt` - 原项目能力边界分析
+- https://github.com/jhl337/QQNTHookBypass/issues/5#issue-5089925559 - QQ 检测机制全析报告
+- https://github.com/jhl337/QQNTHookBypass - 原项目能力边界分析
 
 ## 许可证
 
