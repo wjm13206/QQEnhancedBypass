@@ -61,9 +61,10 @@ public class XposedEntry implements IXposedHookLoadPackage {
             RuntimeMonitorHook.hook(lpparam);
 
             // === Report Status ===
-            String protection = UnifiedHookCoordinator.getProtectionLevel();
-            log("=== Initialization Complete ===");
-            log("Protection Level: " + protection);
+            log("=== Java Hooks Initialized ===");
+            log("Initial Protection Level: " + UnifiedHookCoordinator.getProtectionLevel());
+            // Native 层在后台线程异步安装，稍后报告最终等级
+            UnifiedHookCoordinator.reportFinalProtectionLevelAsync();
 
         } catch (Throwable t) {
             log("Error during hook initialization: " + t.getMessage());

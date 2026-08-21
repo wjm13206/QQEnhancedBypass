@@ -75,15 +75,6 @@ public class DebugDetectionHook {
                     }
                 });
         }
-
-        // Hook Camera SDK debug check
-        HookUtils.hookMethod("com.tencent.camerasdk.avreport.DeviceInfo", "getDebugInfo",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult("0"); // Not debugging
-                }
-            });
     }
 
     private static void hookDebugProperties() {
@@ -174,28 +165,10 @@ public class DebugDetectionHook {
                     }
                 }
             });
-
-        // Hook specific emulator detection method
-        HookUtils.hookMethod("com.tencent.mobileqq.qrscan.minicode.e", "e",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false); // Not an emulator
-                }
-            });
     }
 
     private static void hookTuringDebugChecks() {
-        // Hook libfekit.so related Java bridges (if any)
-        // Most TuringFD checks are in native code and cannot be hooked here
-
-        // Block risk detection that includes debug status
-        HookUtils.hookAllMethods("com.tencent.turingfd.sdk.ams.au.TuringFDCoreInfo", "getIsDebug",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                }
-            });
+        // TuringFD checks are primarily in native code (libfekit.so, libturingxq.so)
+        // and are handled by the native bypass layer
     }
 }

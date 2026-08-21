@@ -9,6 +9,9 @@
 #include "hooks/hook_libfekit.h"
 #include "hooks/hook_libturingxq.h"
 #include "hooks/hook_libmsf.h"
+#include "hooks/hook_libqsec.h"
+#include "hooks/hook_libmsfkernel.h"
+#include "hooks/hook_libturingmfa.h"
 
 /**
  * Native Bypass Module for QQ Enhanced Bypass
@@ -20,7 +23,10 @@
  * - libc: File I/O interception (/proc/self/maps, /proc/self/status)
  * - libfekit.so: Root/Xposed detection
  * - libturingxq.so: ART integrity checks and risk reporting
- * - libMSFKernel.so: Signature verification (experimental)
+ * - libMSFKernel.so: qimei36 fingerprint injection (QQ 9.3.50+)
+ * - libQSec.so: Anti-hook detection (dlopen/dlsym/dladdr)
+ * - libturingmfa.so: Risk reporting channel
+ * - libMSF hooks: Signature verification (experimental)
  */
 
 static bool g_hooks_installed = false;
@@ -64,8 +70,13 @@ static void* install_hooks_thread(void* arg) {
     // 3. libturingxq.so hooks (ART integrity and risk reporting)
     hook_libturingxq::install_hooks();
 
-    // 4. libMSF hooks (signature verification - experimental)
-    hook_libmsf::install_hooks();
+    // 4. QQ 9.3.50+ extended hooks
+    install_qsec_hooks();        // Anti-hook detection
+    install_msfkernel_hooks();   // qimei36 fingerprint injection
+    install_turingmfa_hooks();   // Risk reporting channel
+
+    // 5. libMSF hooks (signature verification - experimental, disabled for stability)
+    // hook_libmsf::install_hooks();
 
     g_hooks_installed = true;
     LOGI("=== All Native Hooks Installed Successfully ===");

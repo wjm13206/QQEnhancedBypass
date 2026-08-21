@@ -44,7 +44,7 @@ public class RuntimeMonitorHook {
 
     private static void hookPandoraRuntimeMonitor() {
         // Disable RuntimeMonitor entirely
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.RuntimeMonitor", "monitor",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "monitor",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -53,7 +53,7 @@ public class RuntimeMonitorHook {
                 }
             });
 
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.RuntimeMonitor", "onExec",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "onExec",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -61,7 +61,7 @@ public class RuntimeMonitorHook {
                 }
             });
 
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.RuntimeMonitor", "shouldMonitor",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "shouldMonitor",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -72,7 +72,7 @@ public class RuntimeMonitorHook {
 
     private static void hookCommandProcessors() {
         // Hook IPProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.IPProcessor", "process",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.IPProcessor", "process",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -81,7 +81,7 @@ public class RuntimeMonitorHook {
             });
 
         // Hook PackageManagerProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.PackageManagerProcessor", "process",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.PackageManagerProcessor", "process",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -90,7 +90,7 @@ public class RuntimeMonitorHook {
             });
 
         // Hook PropProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.PropProcessor", "process",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.PropProcessor", "process",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {

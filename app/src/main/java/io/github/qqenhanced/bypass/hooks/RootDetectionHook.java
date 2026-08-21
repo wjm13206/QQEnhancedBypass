@@ -12,15 +12,13 @@ import java.io.File;
 /**
  * Root Detection Bypass Hook
  *
- * Bypasses 6 independent Java-layer root detection implementations:
+ * Bypasses Java-layer root detection implementations:
  * 1. oicq.wlogin_sdk.request.w.h() - Wlogin SDK
- * 2. com.tencent.gathererga.core.UserInfoImpl.isRooted()
- * 3. org.light.device.LightDeviceUtils.isRooted()
- * 4. com.tencent.bugly.proguard.cp
- * 5. com.tenpay.charge.v2.util.ChargeV2Utils.isDeviceRooted()
- * 6. com.tencent.camerasdk.avreport.DeviceInfo
+ * 2. org.light.device.LightDeviceUtils.isRooted()
+ * 3. com.tenpay.charge.v2.util.ChargeV2Utils.isDeviceRooted()
  *
  * Note: Native-layer detection (libfekit.so) requires native hooks
+ * QQ 9.3.50 removed: gathererga.UserInfoImpl, bugly.proguard.cp, camerasdk.avreport.DeviceInfo
  */
 public class RootDetectionHook {
 
@@ -32,20 +30,11 @@ public class RootDetectionHook {
         // Hook 1: Wlogin SDK root check
         hookWloginRoot();
 
-        // Hook 2: Gatherer GA root check
-        hookGathererRoot();
-
-        // Hook 3: Light Device Utils
+        // Hook 2: Light Device Utils
         hookLightDeviceRoot();
 
-        // Hook 4: Bugly crash SDK
-        hookBuglyRoot();
-
-        // Hook 5: Tenpay charge utils
+        // Hook 3: Tenpay charge utils
         hookTenpayRoot();
-
-        // Hook 6: Camera SDK
-        hookCameraSDKRoot();
 
         // Generic file existence checks for su binaries
         hookFileExists();
@@ -69,17 +58,6 @@ public class RootDetectionHook {
             });
     }
 
-    private static void hookGathererRoot() {
-        HookUtils.hookMethod("com.tencent.gathererga.core.UserInfoImpl", "isRooted",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                    XposedEntry.log("Gatherer isRooted: false");
-                }
-            });
-    }
-
     private static void hookLightDeviceRoot() {
         HookUtils.hookMethod("org.light.device.LightDeviceUtils", "isRooted",
             new XC_MethodHook() {
@@ -91,16 +69,6 @@ public class RootDetectionHook {
             });
     }
 
-    private static void hookBuglyRoot() {
-        HookUtils.hookMethod("com.tencent.bugly.proguard.cp", "a",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                }
-            });
-    }
-
     private static void hookTenpayRoot() {
         HookUtils.hookMethod("com.tenpay.charge.v2.util.ChargeV2Utils", "isDeviceRooted",
             new XC_MethodHook() {
@@ -108,16 +76,6 @@ public class RootDetectionHook {
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     param.setResult(false);
                     XposedEntry.log("Tenpay isDeviceRooted: false");
-                }
-            });
-    }
-
-    private static void hookCameraSDKRoot() {
-        HookUtils.hookMethod("com.tencent.camerasdk.avreport.DeviceInfo", "isRooted",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
                 }
             });
     }

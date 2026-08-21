@@ -1,0 +1,60 @@
+#include <jni.h>
+#include <string.h>
+#include "../utils/log.h"
+#include "bytehook.h"
+
+// MSFKernel 关键函数的原始指针
+static void* original_setQimei36 = nullptr;
+
+/**
+ * Hook MSFKernelBridge.native_setQimei36
+ *
+ * 这个函数将 qimei36 设备指纹注入到 MSF 协议层，是风控的核心数据源。
+ * 拦截它可以防止异常设备指纹被上报。
+ */
+static void hooked_setQimei36(JNIEnv* env, jobject thiz, jstring qimei36) {
+    const char* qimei_str = env->GetStringUTFChars(qimei36, nullptr);
+
+    LOGI("MSFKernel setQimei36 intercepted: %s", qimei_str ? qimei_str : "(null)");
+
+    // 策略选择：
+    // 1. 完全阻断（不调用原函数）— 可能导致协议异常
+    // 2. 伪装指纹（替换成正常设备的 qimei）— 需要有效样本
+    // 3. 放行但记录（当前策略）
+
+    // 当前：放行但记录，便于后续分析
+    if (original_setQimei36) {
+        typedef void (*setQimei36_t)(JNIEnv*, jobject, jstring);
+        ((setQimei36_t)original_setQimei36)(env, thiz, qimei36);
+    }
+
+    if (qimei_str) {
+        env->ReleaseStringUTFChars(qimei36, qimei_str);
+    }
+}
+
+/**
+ * 安装 libMSFKernel 的 hook
+ */
+void install_msfkernel_hooks() {
+    LOGI("Installing libMSFKernel hooks (ByteHook)...");
+
+    // Hook native_setQimei36
+    // 注意：JNI 函数名需要完整的签名
+    // 格式：Java_包名_类名_方法名
+    // 实际名称需要通过逆向确认，这里是推测
+    bytehook_stub_t stub = bytehook_hook_single(
+        "libMSFKernel.so",
+        nullptr,
+        "Java_com_tencent_mobileqq_msf_core_MSFKernelBridge_native_1setQimei36",
+        (void*)hooked_setQimei36,
+        nullptr,
+        &original_setQimei36
+    );
+
+    if (stub == nullptr) {
+        LOGE("Failed to hook MSFKernel setQimei36 (function may not exist or name mismatch)");
+    } else {
+        LOGI("libMSFKernel hooks installed");
+    }
+}

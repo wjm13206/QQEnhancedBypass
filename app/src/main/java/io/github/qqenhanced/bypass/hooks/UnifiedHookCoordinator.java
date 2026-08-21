@@ -169,4 +169,43 @@ public class UnifiedHookCoordinator {
             return "Java only (30%)";
         }
     }
+
+    /**
+     * 异步等待 Native 层安装完成后，报告最终保护等级。
+     *
+     * Native hook 在后台线程延迟安装（约需 2-3 秒），如果同步读取会得到
+     * "Native loading (60%)" 的中间态。这里轮询等待，直到装完或超时。
+     */
+    public static void reportFinalProtectionLevelAsync() {
+        if (!nativeLayerAvailable) {
+            // 没有 Native 层，当前状态即最终状态
+            XposedEntry.log("=== Final Protection Level: " + getProtectionLevel() + " ===");
+            return;
+        }
+
+        new Thread(() -> {
+            final int maxWaitMs = 10000;   // 最多等 10 秒
+            final int intervalMs = 300;
+            int waited = 0;
+
+            while (waited < maxWaitMs) {
+                if (NativeBypass.isHooksInstalled()) {
+                    XposedEntry.log("=== Final Protection Level: Full (80%) ===");
+                    XposedEntry.log("Native hook statistics:\n" + NativeBypass.getHookStatistics());
+                    return;
+                }
+                try {
+                    Thread.sleep(intervalMs);
+                    waited += intervalMs;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+
+            // 超时仍未装完
+            XposedEntry.log("=== Final Protection Level: " + getProtectionLevel()
+                    + " (native install timed out) ===");
+        }, "QQBypass-StatusReporter").start();
+    }
 }

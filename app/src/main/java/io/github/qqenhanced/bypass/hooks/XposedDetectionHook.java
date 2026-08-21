@@ -52,42 +52,17 @@ public class XposedDetectionHook {
 
         XposedEntry.log("Initializing Xposed Detection Bypass");
 
-        // Hook 1: Crash monitor Xposed detection
-        hookCrashMonitor();
-
-        // Hook 2: PackageManager to hide Xposed packages
+        // Hook 1: PackageManager to hide Xposed packages
         hookPackageManagerForXposed();
 
-        // Hook 3: File I/O to filter /proc/self/maps
+        // Hook 2: File I/O to filter /proc/self/maps
         hookProcMapsReading();
 
-        // Hook 4: Stack trace filtering
+        // Hook 3: Stack trace filtering
         hookStackTrace();
 
-        // Hook 5: ClassLoader detection
+        // Hook 4: ClassLoader detection
         hookClassLoaderCheck();
-    }
-
-    private static void hookCrashMonitor() {
-        // QQPerf crash monitor checks for Xposed
-        HookUtils.hookAllMethods("com.tencent.qqperf.monitor.crash.c", "a",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Block Xposed detection in crash reports
-                    param.setResult(false);
-                }
-            });
-
-        // Alternative method names
-        HookUtils.hookMethod("com.tencent.qqperf.monitor.crash.c", "isXposedInstalled",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                    XposedEntry.log("Blocked isXposedInstalled check");
-                }
-            });
     }
 
     private static void hookPackageManagerForXposed() {

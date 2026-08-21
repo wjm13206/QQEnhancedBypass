@@ -142,7 +142,7 @@ public class DeviceInfoHook {
 
     private static void hookPandoraMonitor() {
         // Hook Pandora's DeviceInfoMonitor to prevent cross-validation
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.DeviceInfoMonitor", "getImei",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.DeviceInfoMonitor", "getImei",
             new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -153,7 +153,7 @@ public class DeviceInfoHook {
             });
 
         // Hook MonitorReporter to block anomaly reports
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.MonitorReporter", "report",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.MonitorReporter", "report",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -162,7 +162,7 @@ public class DeviceInfoHook {
                 }
             });
 
-        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.MonitorReporter", "getStrategyAndReport",
+        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.MonitorReporter", "getStrategyAndReport",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {

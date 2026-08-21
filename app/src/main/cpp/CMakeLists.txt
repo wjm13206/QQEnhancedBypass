@@ -14,6 +14,9 @@ add_library(
     hooks/hook_libfekit.cpp
     hooks/hook_libturingxq.cpp
     hooks/hook_libmsf.cpp
+    hooks/hook_libqsec.cpp
+    hooks/hook_libmsfkernel.cpp
+    hooks/hook_libturingmfa.cpp
     utils/log.cpp
 )
 
