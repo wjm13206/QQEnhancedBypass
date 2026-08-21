@@ -142,7 +142,7 @@ public class DeviceInfoHook {
 
     private static void hookPandoraMonitor() {
         // Hook Pandora's DeviceInfoMonitor to prevent cross-validation
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.DeviceInfoMonitor", "getImei",
+        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.monitor.DeviceInfoMonitor", "getImei",
             new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
@@ -152,8 +152,9 @@ public class DeviceInfoHook {
                 }
             });
 
-        // Hook MonitorReporter to block anomaly reports
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.MonitorReporter", "report",
+        // Hook MonitorReporter.report (void method) to suppress anomaly reports.
+        // report() returns void, so setResult(null) is type-safe.
+        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.core.MonitorReporter", "report",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
@@ -162,13 +163,12 @@ public class DeviceInfoHook {
                 }
             });
 
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.MonitorReporter", "getStrategyAndReport",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Return a safe strategy that doesn't trigger checks
-                    param.setResult(0);
-                }
-            });
+        // NOTE: Do NOT hook getStrategyAndReport().
+        // It sits on the NORMAL data-retrieval path (DeviceInfoMonitor.getModel,
+        // InstalledAppListMonitor.getRunningAppProcesses) and returns a typed
+        // strategy object. Forcing setResult(0) triggers a ClassCastException
+        // ("Return value's type from hook callback does not match the hooked method")
+        // thrown by Xposed during proceed() - impossible to catch - which crashes
+        // QQ's startup tasks and blocks entry to the main UI (QQ 9.3.50).
     }
 }

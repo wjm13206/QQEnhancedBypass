@@ -19,15 +19,15 @@ import io.github.qqenhanced.bypass.utils.HookUtils;
  */
 public class NetworkReportHook {
 
+    // Only pure telemetry/report commands. Login-critical commands
+    // (wtlogin.*, turing, DeviceTokenV3) are intentionally NOT blocked -
+    // blocking them breaks the QQ login/registration handshake and prevents
+    // entry to the main UI.
     private static final String[] BLOCK_COMMANDS = {
         "trpc.o3.report",
         "trpc.o3.mobile_security",
         "trpc.ilive_cdn.report",
-        "OidbSvc.0xd79",  // Device report
-        "wtlogin.device_lock",
-        "turing",
-        "riskCheckWup",
-        "DeviceTokenV3"
+        "OidbSvc.0xd79"  // Device report
     };
 
     public static void hook(XC_LoadPackage.LoadPackageParam lpparam) {
@@ -57,10 +57,21 @@ public class NetworkReportHook {
                 new XC_MethodHook() {
                     @Override
                     protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        if (param.args.length < 1) return;
+                        if (param.args.length < 1 || !(param.args[0] instanceof String)) return;
 
                         String command = (String) param.args[0];
                         if (shouldBlock(command)) {
+                            // Only override the return value if type-safe. setResult(null)
+                            // crashes (uncatchable ClassCastException in proceed()) when the
+                            // method returns a primitive.
+                            Class<?> returnType = ((java.lang.reflect.Method) param.method).getReturnType();
+                            if (returnType.isPrimitive() && returnType != void.class) {
+                                // Primitive return - blocking is unsafe, observe only.
+                                XposedEntry.log("ChannelProxyExt (not blocked, primitive return "
+                                    + returnType.getName() + "): " + command);
+                                return;
+                            }
+
                             XposedEntry.log("Blocked ChannelProxyExt: " + command);
 
                             // Inject fake response
@@ -83,24 +94,44 @@ public class NetworkReportHook {
     }
 
     private static void hookMsfCore(XC_LoadPackage.LoadPackageParam lpparam) {
-        HookUtils.hookAllMethods("com.tencent.qphone.base.remote.MsfCore", "sendSsoMsg",
+        // Real path (QQ 9.3.50): com.tencent.mobileqq.msf.core.MsfCore
+        HookUtils.hookAllMethods("com.tencent.mobileqq.msf.core.MsfCore", "sendSsoMsg",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     if (param.args.length < 1) return;
 
                     Object toServiceMsg = param.args[0];
-                    String command = (String) XposedHelpers.callMethod(toServiceMsg, "getServiceCmd");
+                    Object cmdObj = XposedHelpers.callMethod(toServiceMsg, "getServiceCmd");
+                    String command = cmdObj == null ? null : cmdObj.toString();
 
                     if (shouldBlock(command)) {
-                        XposedEntry.log("Blocked MsfCore: " + command);
-
-                        // Return sequence number to simulate success
-                        try {
-                            int seq = (int) XposedHelpers.callMethod(toServiceMsg, "getRequestSsoSeq");
+                        // Type-safe block: only override the return value if the hooked
+                        // method actually returns int/long/void. Setting a wrong-typed
+                        // result triggers an uncatchable ClassCastException in Xposed's
+                        // proceed() and crashes the process.
+                        Class<?> returnType = ((java.lang.reflect.Method) param.method).getReturnType();
+                        if (returnType == int.class) {
+                            int seq = 0;
+                            try {
+                                seq = (int) XposedHelpers.callMethod(toServiceMsg, "getRequestSsoSeq");
+                            } catch (Throwable ignored) { }
                             param.setResult(seq);
-                        } catch (Throwable t) {
-                            param.setResult(0);
+                            XposedEntry.log("Blocked MsfCore: " + command);
+                        } else if (returnType == long.class) {
+                            long seq = 0L;
+                            try {
+                                seq = ((Number) XposedHelpers.callMethod(toServiceMsg, "getRequestSsoSeq")).longValue();
+                            } catch (Throwable ignored) { }
+                            param.setResult(seq);
+                            XposedEntry.log("Blocked MsfCore: " + command);
+                        } else if (returnType == void.class) {
+                            param.setResult(null);
+                            XposedEntry.log("Blocked MsfCore: " + command);
+                        } else {
+                            // Unknown return type - observe only, do not risk a crash.
+                            XposedEntry.log("MsfCore (not blocked, return type "
+                                + returnType.getName() + "): " + command);
                         }
                     }
                 }

@@ -43,60 +43,35 @@ public class RuntimeMonitorHook {
     }
 
     private static void hookPandoraRuntimeMonitor() {
-        // Disable RuntimeMonitor entirely
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "monitor",
+        // IMPORTANT: These Pandora RuntimeMonitor methods are WRAPPERS that QQ calls
+        // to get real data (monitor() returns the Process from Runtime.exec, etc.).
+        // They are a privacy-compliance recorder, NOT a hook/root detector, so nulling
+        // their return value does not hide anything - it only feeds QQ null/wrong-typed
+        // values and risks the same ClassCastException that getStrategyAndReport caused.
+        // The real runtime bypass is handled by the native layer + Runtime.exec hook.
+        // So we ONLY observe here, never override the return value.
+        // Real path (QQ 9.3.50): com.tencent.qmethod.pandoraex.monitor.RuntimeMonitor
+        HookUtils.hookAllMethods("com.tencent.qmethod.pandoraex.monitor.RuntimeMonitor", "onExec",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Block all runtime monitoring
-                    param.setResult(null);
+                    // Observe only - do NOT setResult (return type unknown / on data path)
+                    if (param.args != null && param.args.length > 0 && param.args[0] != null) {
+                        XposedEntry.log("RuntimeMonitor.onExec observed: " + param.args[0]);
+                    }
                 }
             });
 
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "onExec",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(null);
-                }
-            });
-
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.RuntimeMonitor", "shouldMonitor",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(false);
-                }
-            });
+        // Note: shouldMonitor() no longer exists in QQ 9.3.50 - removed.
+        // Note: monitor() intentionally NOT overridden - it returns data QQ needs.
     }
 
     private static void hookCommandProcessors() {
-        // Hook IPProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.IPProcessor", "process",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(null);
-                }
-            });
-
-        // Hook PackageManagerProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.PackageManagerProcessor", "process",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(null);
-                }
-            });
-
-        // Hook PropProcessor
-        HookUtils.hookAllMethods("com.tencent.qmethod.monitor.core.PropProcessor", "process",
-            new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(null);
-                }
-            });
+        // Processors are inner classes of RuntimeMonitor (RuntimeMonitor$XxxProcessor).
+        // process() returns processed command output that QQ consumes, so we observe
+        // only and never override the return value (avoids ClassCastException + breakage).
+        // Left intentionally empty: blocking these breaks QQ startup and provides no
+        // real detection bypass (native layer already covers command interception).
     }
 
     private static void hookProcessBuilder() {
