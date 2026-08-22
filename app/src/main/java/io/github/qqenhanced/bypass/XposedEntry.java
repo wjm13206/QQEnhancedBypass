@@ -60,6 +60,9 @@ public class XposedEntry implements IXposedHookLoadPackage {
             // Layer 6: Runtime monitoring bypass
             RuntimeMonitorHook.hook(lpparam);
 
+            // Layer 7: QQ 9.3.50 detection-point completion (real risk/kick targets)
+            QQ950PatchHook.hook(lpparam);
+
             // === Report Status ===
             log("=== Java Hooks Initialized ===");
             log("Initial Protection Level: " + UnifiedHookCoordinator.getProtectionLevel());

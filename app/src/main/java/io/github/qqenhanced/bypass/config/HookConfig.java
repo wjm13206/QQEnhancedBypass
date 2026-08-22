@@ -18,6 +18,8 @@ public class HookConfig {
     public static boolean ENABLE_DEVICE_SPOOF = true;
     public static boolean ENABLE_NETWORK_INTERCEPT = true;
     public static boolean ENABLE_RUNTIME_BYPASS = true;
+    public static boolean ENABLE_QQ950_PATCH = true;        // QQ 9.3.50 detection-point completion
+    public static boolean ENABLE_QQ950_RISK_BLOCK = true;   // Tier 2: object-return risk blocks (NPE-caveat; disable if NPE appears)
 
     // Verbose logging
     public static boolean VERBOSE_LOGGING = true;
