@@ -112,25 +112,74 @@ public class RuntimeMonitorHook {
     }
 
     private static void hookProcessBuilder() {
-        // Hook ProcessBuilder.start() to monitor command execution
+        // ProcessBuilder.start() is the UNIVERSAL choke point for command execution:
+        // Runtime.exec() and Pandora RuntimeMonitor.exec() both funnel through it
+        // (verified in runtime logs - every `type su` probe passes here).
+        //
+        // EVIDENCE (kick log 22_08-18-33-32): QQ ran `/system/bin/sh -c type su`
+        // 130+ times over ~97 min. It was only OBSERVED, never blocked, so `type su`
+        // returned the real result (su found) every time -> root reported -> server
+        // force-logout. This neutralizes those probes.
         HookUtils.hookMethod(ProcessBuilder.class, "start",
             new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     ProcessBuilder pb = (ProcessBuilder) param.thisObject;
                     java.util.List<String> command = pb.command();
+                    if (command == null || command.isEmpty()) return;
 
-                    if (command != null && !command.isEmpty()) {
-                        String cmd = command.get(0);
+                    String joined = joinCommand(command);
 
-                        // Log monitored commands
-                        if (isMonitoredCommand(cmd)) {
-                            XposedEntry.log("ProcessBuilder command intercepted: " + cmd);
-                            // We don't block it, just log - blocking might break functionality
-                        }
+                    if (isRootProbe(joined)) {
+                        // Rewrite the command IN PLACE to a harmless no-op that yields
+                        // empty stdout + non-zero exit - exactly what an UNROOTED device
+                        // returns for `type su` / `which su` (su not found). We let the
+                        // real start() proceed with the neutralized command, so there is
+                        // no fake Process object and no recursion into this hook.
+                        pb.command("/system/bin/sh", "-c", "exit 1");
+                        XposedEntry.log("Neutralized ProcessBuilder root probe: " + joined);
+                    } else if (isMonitoredCommand(joined)) {
+                        // Non-root monitored command: observe only, don't break it.
+                        XposedEntry.log("ProcessBuilder command intercepted: " + joined);
                     }
                 }
             });
+    }
+
+    private static String joinCommand(java.util.List<String> command) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : command) {
+            if (part == null) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(part);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Unambiguous root / root-manager probes that are safe to neutralize.
+     * Kept narrow (token-level "su" + known root-manager names) so legitimate
+     * shell commands QQ needs are never rewritten.
+     */
+    private static boolean isRootProbe(String joined) {
+        if (joined == null) return false;
+        String s = joined.toLowerCase();
+        // Known root-manager names + explicit su binary paths (verified present in
+        // QQ 9.3.50 dex: /system/bin/su, /system/xbin/su, /sbin/su, /su/bin/su).
+        if (s.contains("magisk") || s.contains("supersu") || s.contains("superuser")
+                || s.contains("busybox") || s.contains("ksud")
+                || s.contains("which su") || s.contains("type su") || s.contains("command -v su")
+                || s.contains("/system/bin/su") || s.contains("/system/xbin/su")
+                || s.contains("/sbin/su") || s.contains("/su/bin")
+                || s.contains("/data/local/su")) {
+            return true;
+        }
+        // standalone "su" token (matches `su`, `type su`, `sh -c su`; not `sudo`, `pull`,
+        // and not benign paths that merely contain the substring "su").
+        for (String tok : s.split("\\s+")) {
+            if (tok.equals("su")) return true;
+        }
+        return false;
     }
 
     private static boolean isMonitoredCommand(String command) {
