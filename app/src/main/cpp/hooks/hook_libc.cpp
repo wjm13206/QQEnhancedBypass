@@ -37,8 +37,14 @@ static FILE* build_filtered_maps() {
 
     char line[512];
     const char* blacklist[] = {
+        // Third-party hook/root frameworks
         "lsposed", "xposed", "riru", "zygisk", "edxposed",
-        "frida", "substrate", "libDalvikLoader", "libAndroidCydia", nullptr
+        "frida", "substrate", "libDalvikLoader", "libAndroidCydia",
+        "magisk", "ksu", "kernelsu", "supersu", "superuser",
+        // OUR OWN injection footprint - previously leaked in the "filtered" maps,
+        // exposing the module to any /proc/self/maps scan (a self-own).
+        "libnative-bypass", "libbytehook", "qqenhanced", "qq_hook",
+        nullptr
     };
 
     while (real_fgets(line, sizeof(line), real)) {
