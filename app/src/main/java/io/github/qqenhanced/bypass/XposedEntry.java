@@ -108,14 +108,14 @@ public class XposedEntry implements IXposedHookLoadPackage {
             // Layer 2: Root detection bypass (DexKit-based dynamic version)
             DynamicRootDetectionHook.hook(lpparam);
 
-            // Layer 3: Xposed/Hook framework detection mitigation
-            XposedDetectionHook.hook(lpparam);
+            // Layer 3: Xposed/Hook framework detection mitigation (DexKit-based dynamic version)
+            DynamicXposedDetectionHook.hook(lpparam);
 
-            // Layer 4: Device info consistency protection
-            DeviceInfoHook.hook(lpparam);
+            // Layer 4: Device info consistency protection (DexKit-based dynamic version)
+            DynamicDeviceInfoHook.hook(lpparam);
 
-            // Layer 5: Debug/Emulator detection bypass
-            DebugDetectionHook.hook(lpparam);
+            // Layer 5: Debug/Emulator detection bypass (DexKit-based dynamic version)
+            DynamicDebugDetectionHook.hook(lpparam);
 
             // Layer 6: Runtime monitoring bypass (DexKit-based dynamic version)
             DynamicRuntimeMonitorHook.hook(lpparam);
