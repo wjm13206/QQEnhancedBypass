@@ -2,10 +2,12 @@
 
 一个全面的 QQ 环境检测绕过模块，基于对 QQ 检测机制的深度分析开发。面向研究目标 QQ 9.3.50 (com.tencent.mobileqq)。
 
+本项目经过多轮测试，已没有太大问题，如过账号还是频繁掉线，可能是账号风控，请尝试QQ会员解决（
+
 ## 项目特点
 
 ### 1. DexKit 动态定位（抗版本更新）
-不再把混淆后的类名/方法名写死在代码里。启动时用 [DexKit](https://github.com/LuckyPray/DexKit) 按**稳定特征**（引用的字符串常量、调用的方法、参数类型）在运行时定位检测点，QQ 更新改名后仍能命中。例如：
+启动时用 [DexKit](https://github.com/LuckyPray/DexKit) 按**稳定特征**（引用的字符串常量、调用的方法、参数类型）在运行时定位检测点，QQ 更新改名后仍能命中。例如：
 - Turing 的 `/proc` 进程读取器 → 按字符串 `"/proc/%d/cmdline"` 定位（不依赖 `Pomegranate`/`oqKCa` 这类会变的混淆名）
 - 踢下线处理器 → 按签名（`void` + `Constants$LogoutReason` 参数）定位，不依赖方法名 `b`
 
@@ -174,7 +176,7 @@ QQ 频繁更新，混淆类名/方法名会变化。本模块用 DexKit 按特�
 ### 2. 内核层隐藏
 - Magisk Zygisk：进程隔离
 - KernelSU：内核级权限管理
-- Shamiko：隐藏 Magisk 自身
+- Zygisk-Next: 还原挂载，匿名内存
 
 ### 3. 虚拟化方案
 - VirtualXposed（已过时）
@@ -202,6 +204,7 @@ QQ 频繁更新，混淆类名/方法名会变化。本模块用 DexKit 按特�
 
 ## 致谢与参考
 
+- [1.txt](https://github.com/jhl337/QQNTHookBypass/issues/5) - 项目分析及灵感，后续测试也与YIDYIF一同完成
 - [DexKit](https://github.com/LuckyPray/DexKit) - 高性能 dex 反混淆/特征定位库
 - [ByteHook](https://github.com/bytedance/bytehook) - Android PLT hook 框架
 - [LSPosed](https://github.com/LSPosed/LSPosed) - Xposed 框架
