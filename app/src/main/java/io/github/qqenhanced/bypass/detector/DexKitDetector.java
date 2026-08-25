@@ -301,16 +301,35 @@ public class DexKitDetector {
         try {
             XposedBridge.log("[" + TAG + "] Searching for su path checkers...");
 
-            List<MethodData> results = dexKitBridge.findMethod(
-                FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .addInvoke(MethodMatcher.create()
-                            .declaredClass("java.io.File")
-                            .name("exists"))
-                        // single string = "contains"; catches "/system/bin/su" etc.
-                        .usingStrings("su")
-                    )
-            );
+            // Tight fingerprint: a method that references a LITERAL su binary path
+            // AND calls File.exists is almost certainly a real root checker.
+            // The old bare "su" substring matched 903 innocent methods on 9.3.50
+            // (result/measure/issue/... all contain "su"), each then hooked and its
+            // boolean flipped -> startup cost + correctness hazard. The universal
+            // File.exists hook is the runtime safety net for anything this misses.
+            String[] suPaths = {
+                "/system/bin/su", "/system/xbin/su", "/sbin/su",
+                "/su/bin/su", "/system/sd/xbin/su", "/system/bin/failsafe/su",
+                "/data/local/su", "/data/local/xbin/su", "/data/local/bin/su",
+                "/data/adb/magisk"
+            };
+            Map<String, MethodData> unique = new HashMap<>();
+            for (String p : suPaths) {
+                try {
+                    List<MethodData> found = dexKitBridge.findMethod(
+                        FindMethod.create()
+                            .matcher(MethodMatcher.create()
+                                .addInvoke(MethodMatcher.create()
+                                    .declaredClass("java.io.File")
+                                    .name("exists"))
+                                .usingStrings(p))
+                    );
+                    for (MethodData m : found) unique.put(m.getDescriptor(), m);
+                } catch (Exception e) {
+                    XposedBridge.log("[" + TAG + "] su-path query failed for '" + p + "': " + e.getMessage());
+                }
+            }
+            List<MethodData> results = new ArrayList<>(unique.values());
 
             detectionCache.put("su_path", results);
             XposedBridge.log("[" + TAG + "] Found " + results.size() + " su path checkers");
