@@ -11,7 +11,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 1
-        versionName "1.0.5"
+        versionName "1.0.7"
 
         externalNativeBuild {
             cmake {
@@ -57,4 +57,7 @@ dependencies {
 
     // ByteHook - 字节跳动 PLT hook 框架（预编译 AAR，含 prefab 供 CMake 使用）
     implementation 'com.bytedance:bytehook:1.0.2'
+
+    // DexKit - 高性能 dex 字节码搜索库，用于动态定位混淆后的检测点
+    implementation 'org.luckypray:dexkit:2.0.0'
 }

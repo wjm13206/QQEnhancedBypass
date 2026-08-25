@@ -6,6 +6,7 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import io.github.qqenhanced.bypass.config.HookConfig;
+import io.github.qqenhanced.bypass.detector.DexKitDetector;
 import io.github.qqenhanced.bypass.hooks.*;
 
 /**
@@ -34,6 +35,40 @@ public class XposedEntry implements IXposedHookLoadPackage {
 
         // Initialize configuration
         HookConfig.init(lpparam);
+
+        // === DexKit Dynamic Detection (Background Thread) ===
+        // Scan for obfuscated detection points to avoid version-specific hardcoding
+        new Thread(() -> {
+            try {
+                log("=== DexKit: Starting dynamic scan ===");
+                Thread.sleep(3000); // Wait for app context
+
+                android.content.Context context = (android.content.Context)
+                    de.robv.android.xposed.XposedHelpers.callStaticMethod(
+                        de.robv.android.xposed.XposedHelpers.findClass(
+                            "android.app.ActivityThread", lpparam.classLoader),
+                        "currentApplication");
+
+                if (context != null) {
+                    DexKitDetector.init(context);
+
+                    int artHook = DexKitDetector.findArtHookDetectors().size();
+                    int mapsReader = DexKitDetector.findMapsReaders().size();
+                    int wtlogin = DexKitDetector.findWtloginErrorHandlers().size();
+                    int qsec = DexKitDetector.findQSecHookDetectors().size();
+
+                    log("=== DexKit Scan Complete ===");
+                    log("  ArtMethod detectors: " + artHook);
+                    log("  Maps readers: " + mapsReader);
+                    log("  Wtlogin handlers: " + wtlogin);
+                    log("  QSec detectors: " + qsec);
+
+                    DexKitDetector.release();
+                }
+            } catch (Exception e) {
+                log("DexKit scan failed: " + e.getMessage());
+            }
+        }).start();
 
         try {
             // === Initialize Unified Hook Coordinator ===
