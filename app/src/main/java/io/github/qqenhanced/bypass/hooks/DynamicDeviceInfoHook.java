@@ -73,7 +73,9 @@ public class DynamicDeviceInfoHook {
             List<MethodData> imeiReaders = bridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("android.telephony.TelephonyManager->getDeviceId")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("android.telephony.TelephonyManager")
+                            .name("getDeviceId"))
                     )
             );
 
@@ -81,7 +83,9 @@ public class DynamicDeviceInfoHook {
             List<MethodData> androidIdReaders = bridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("android.provider.Settings$Secure->getString")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("android.provider.Settings$Secure")
+                            .name("getString"))
                         .usingStrings("android_id")
                     )
             );
@@ -90,7 +94,9 @@ public class DynamicDeviceInfoHook {
             List<MethodData> serialReaders = bridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("android.os.Build->getSerial")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("android.os.Build")
+                            .name("getSerial"))
                     )
             );
 
@@ -117,12 +123,12 @@ public class DynamicDeviceInfoHook {
                 String className = methodData.getClassName();
                 String methodName = methodData.getMethodName();
 
-                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
-                if (clazz == null) continue;
-
-                String descriptor = methodData.getDescriptor();
-                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
-                if (method == null) continue;
+                Member method;
+                try {
+                    method = methodData.getMethodInstance(lpparam.classLoader);
+                } catch (Throwable t) {
+                    continue;
+                }
 
                 XposedBridge.hookMethod(method, new XC_MethodHook() {
                     @Override
@@ -143,16 +149,4 @@ public class DynamicDeviceInfoHook {
         }
     }
 
-    private static Member findMethodByDescriptor(Class<?> clazz, String methodName, String descriptor) {
-        try {
-            for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(methodName)) {
-                    return m;
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
-    }
 }

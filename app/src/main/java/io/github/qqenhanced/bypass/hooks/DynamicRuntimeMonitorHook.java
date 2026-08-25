@@ -2,7 +2,6 @@ package io.github.qqenhanced.bypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import org.luckypray.dexkit.result.MethodData;
@@ -86,13 +85,13 @@ public class DynamicRuntimeMonitorHook {
                 String className = methodData.getClassName();
                 String methodName = methodData.getMethodName();
 
-                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
-                if (clazz == null) continue;
-
-                // Get method descriptor to find exact overload
-                String descriptor = methodData.getDescriptor();
-                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
-                if (method == null) continue;
+                // Resolve the exact method (correct overload) from the full DEX descriptor
+                Member method;
+                try {
+                    method = methodData.getMethodInstance(lpparam.classLoader);
+                } catch (Throwable t) {
+                    continue;
+                }
 
                 XposedBridge.hookMethod(method, new XC_MethodHook() {
                     @Override
@@ -123,12 +122,12 @@ public class DynamicRuntimeMonitorHook {
                 String className = methodData.getClassName();
                 String methodName = methodData.getMethodName();
 
-                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
-                if (clazz == null) continue;
-
-                String descriptor = methodData.getDescriptor();
-                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
-                if (method == null) continue;
+                Member method;
+                try {
+                    method = methodData.getMethodInstance(lpparam.classLoader);
+                } catch (Throwable t) {
+                    continue;
+                }
 
                 XposedBridge.hookMethod(method, new XC_MethodHook() {
                     @Override
@@ -143,21 +142,6 @@ public class DynamicRuntimeMonitorHook {
                 XposedEntry.log("Failed to hook ProcessBuilder caller: " + e.getMessage());
             }
         }
-    }
-
-    private static Member findMethodByDescriptor(Class<?> clazz, String methodName, String descriptor) {
-        // Parse descriptor like "(Ljava/lang/String;)Ljava/lang/Process;"
-        // For now, use simple name matching - TODO: parse full descriptor
-        try {
-            for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(methodName)) {
-                    return m;
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
     }
 
     private static void logCommandArgs(String tag, Object[] args) {

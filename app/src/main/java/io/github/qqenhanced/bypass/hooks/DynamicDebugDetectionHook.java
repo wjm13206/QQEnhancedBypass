@@ -81,7 +81,9 @@ public class DynamicDebugDetectionHook {
             List<MethodData> debugCheckers = bridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("android.os.Debug->isDebuggerConnected")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("android.os.Debug")
+                            .name("isDebuggerConnected"))
                     )
             );
 
@@ -146,12 +148,12 @@ public class DynamicDebugDetectionHook {
                 String className = methodData.getClassName();
                 String methodName = methodData.getMethodName();
 
-                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
-                if (clazz == null) continue;
-
-                String descriptor = methodData.getDescriptor();
-                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
-                if (method == null) continue;
+                Member method;
+                try {
+                    method = methodData.getMethodInstance(lpparam.classLoader);
+                } catch (Throwable t) {
+                    continue;
+                }
 
                 XposedBridge.hookMethod(method, new XC_MethodHook() {
                     @Override
@@ -187,19 +189,6 @@ public class DynamicDebugDetectionHook {
                 XposedEntry.log("Failed to hook " + type + " checker: " + e.getMessage());
             }
         }
-    }
-
-    private static Member findMethodByDescriptor(Class<?> clazz, String methodName, String descriptor) {
-        try {
-            for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(methodName)) {
-                    return m;
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return null;
     }
 
     private static boolean isSuspiciousString(String str) {

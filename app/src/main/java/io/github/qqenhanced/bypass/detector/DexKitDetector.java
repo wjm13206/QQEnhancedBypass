@@ -52,23 +52,11 @@ public class DexKitDetector {
         try {
             XposedBridge.log("[" + TAG + "] Searching for ArtMethod hook detectors...");
 
-            List<MethodData> results = new ArrayList<>();
-
-            // Pattern 1: Methods containing "ArtMethod" string
-            results.addAll(dexKitBridge.findMethod(
-                FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .usingStrings("ArtMethod", "hook", "detect")
-                    )
-            ));
-
-            // Pattern 2: Methods calling known hook detection symbols
-            results.addAll(dexKitBridge.findMethod(
-                FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .usingStrings("entry_point", "jni_code", "art_quick")
-                    )
-            ));
+            // OR-semantics: usingStrings(...) is AND within one query, so we union
+            // separate single-string queries to catch methods referencing ANY marker.
+            List<MethodData> results = findMethodsUsingAnyString(
+                "ArtMethod", "art_quick", "entry_point", "jni_code",
+                "instrumentationExit", "quick_to_interpreter");
 
             detectionCache.put("art_hook", results);
             XposedBridge.log("[" + TAG + "] Found " + results.size() + " ArtMethod hook detectors");
@@ -91,12 +79,10 @@ public class DexKitDetector {
         try {
             XposedBridge.log("[" + TAG + "] Searching for /proc/self/maps readers...");
 
-            List<MethodData> results = dexKitBridge.findMethod(
-                FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .usingStrings("/proc/self/maps", "/proc/", "maps")
-                    )
-            );
+            // "/proc/self/maps" is the strong signal; "/proc/self/task" and "/proc/"
+            // catch variants. OR-union so a method needs only one of them.
+            List<MethodData> results = findMethodsUsingAnyString(
+                "/proc/self/maps", "/proc/self/task", "/proc/%d/maps");
 
             detectionCache.put("maps_reader", results);
             XposedBridge.log("[" + TAG + "] Found " + results.size() + " maps readers");
@@ -159,12 +145,10 @@ public class DexKitDetector {
         try {
             XposedBridge.log("[" + TAG + "] Searching for QSec hook detectors...");
 
-            List<MethodData> results = dexKitBridge.findMethod(
-                FindMethod.create()
-                    .matcher(MethodMatcher.create()
-                        .usingStrings("registerHookSo", "nativeFileHook", "isHookedSoLoad", "QSecConfig")
-                    )
-            );
+            // OR-semantics: these markers live in different methods, so union them.
+            List<MethodData> results = findMethodsUsingAnyString(
+                "registerHookSo", "nativeFileHook", "isHookedSoLoad", "QSecConfig",
+                "all_so_hook", "ArtTiHookTask");
 
             detectionCache.put("qsec_hook", results);
             XposedBridge.log("[" + TAG + "] Found " + results.size() + " QSec hook detectors");
@@ -190,8 +174,11 @@ public class DexKitDetector {
             List<MethodData> results = dexKitBridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("java.lang.Runtime->exec")
-                        .usingStrings("su", "type", "which", "/system/bin")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("java.lang.Runtime")
+                            .name("exec"))
+                        // single string = "contains"; multiple would be AND and over-narrow
+                        .usingStrings("su")
                     )
             );
 
@@ -218,7 +205,9 @@ public class DexKitDetector {
             List<MethodData> results = dexKitBridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("java.lang.ProcessBuilder->start")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("java.lang.ProcessBuilder")
+                            .name("start"))
                     )
             );
 
@@ -245,8 +234,11 @@ public class DexKitDetector {
             List<MethodData> results = dexKitBridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("java.io.File->exists")
-                        .usingStrings("/system/bin/su", "/system/xbin/su", "su")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("java.io.File")
+                            .name("exists"))
+                        // single string = "contains"; catches "/system/bin/su" etc.
+                        .usingStrings("su")
                     )
             );
 
@@ -273,8 +265,11 @@ public class DexKitDetector {
             List<MethodData> results = dexKitBridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .addInvoke("android.content.pm.PackageManager->getPackageInfo")
-                        .usingStrings("magisk", "lsposed", "xposed", "supersu")
+                        .addInvoke(MethodMatcher.create()
+                            .declaredClass("android.content.pm.PackageManager")
+                            .name("getPackageInfo"))
+                        // single "contains" marker; runtime isSuspiciousPackage() does the rest
+                        .usingStrings("magisk")
                     )
             );
 
@@ -285,6 +280,29 @@ public class DexKitDetector {
             XposedBridge.log("[" + TAG + "] Error finding package queries: " + e.getMessage());
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * Run one findMethod query per string (OR-semantics) and union the results,
+     * de-duplicating by DEX descriptor. DexKit's usingStrings(vararg) is AND within
+     * a single query, which is wrong when markers live in different methods.
+     */
+    private static List<MethodData> findMethodsUsingAnyString(String... markers) {
+        Map<String, MethodData> unique = new HashMap<>();
+        for (String marker : markers) {
+            try {
+                List<MethodData> found = dexKitBridge.findMethod(
+                    FindMethod.create()
+                        .matcher(MethodMatcher.create().usingStrings(marker))
+                );
+                for (MethodData m : found) {
+                    unique.put(m.getDescriptor(), m);
+                }
+            } catch (Exception e) {
+                XposedBridge.log("[" + TAG + "] query failed for '" + marker + "': " + e.getMessage());
+            }
+        }
+        return new ArrayList<>(unique.values());
     }
 
     /**
