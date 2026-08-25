@@ -1,0 +1,217 @@
+package io.github.qqenhanced.bypass.hooks;
+
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
+
+import org.luckypray.dexkit.result.MethodData;
+
+import java.lang.reflect.Member;
+import java.util.List;
+
+import io.github.qqenhanced.bypass.XposedEntry;
+import io.github.qqenhanced.bypass.config.HookConfig;
+import io.github.qqenhanced.bypass.detector.DexKitDetector;
+import io.github.qqenhanced.bypass.utils.HookUtils;
+
+/**
+ * DexKit-based Runtime Monitor Bypass
+ * Dynamically locates and hooks obfuscated runtime command detection methods
+ */
+public class DynamicRuntimeMonitorHook {
+
+    private static final String[] MONITORED_COMMANDS = {
+        "ip", "pm", "getprop", "sh", "/system/bin/sh",
+        "ps", "cat", "mount", "which", "su"
+    };
+
+    public static void hook(XC_LoadPackage.LoadPackageParam lpparam) {
+        if (!HookConfig.ENABLE_RUNTIME_BYPASS) return;
+
+        XposedEntry.log("Initializing DexKit-based Runtime Monitor Bypass");
+
+        // Universal hook: ProcessBuilder.start() - catches all command execution
+        hookProcessBuilder();
+
+        // Dynamic hooks: DexKit-discovered Runtime.exec callers
+        // Run in background thread since DexKit scan may not be complete yet
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000); // Wait for DexKit scan to complete
+
+                hookRuntimeExecCallers(lpparam);
+                hookProcessBuilderCallers(lpparam);
+
+            } catch (Exception e) {
+                XposedEntry.log("Dynamic runtime hook setup failed: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private static void hookProcessBuilder() {
+        // ProcessBuilder.start() is the UNIVERSAL choke point for command execution
+        HookUtils.hookMethod(ProcessBuilder.class, "start",
+            new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    ProcessBuilder pb = (ProcessBuilder) param.thisObject;
+                    java.util.List<String> command = pb.command();
+                    if (command == null || command.isEmpty()) return;
+
+                    String joined = joinCommand(command);
+
+                    if (isRootProbe(joined)) {
+                        // Rewrite to harmless no-op: exit 1 (non-zero = su not found)
+                        pb.command("/system/bin/sh", "-c", "exit 1");
+                        XposedEntry.log("Neutralized ProcessBuilder root probe: " + joined);
+                    } else if (isMonitoredCommand(joined)) {
+                        XposedEntry.log("ProcessBuilder command intercepted: " + joined);
+                    }
+                }
+            });
+    }
+
+    private static void hookRuntimeExecCallers(XC_LoadPackage.LoadPackageParam lpparam) {
+        List<MethodData> execCallers = DexKitDetector.findRuntimeExecCallers();
+        if (execCallers.isEmpty()) {
+            XposedEntry.log("DynamicRuntime: No Runtime.exec callers found by DexKit");
+            return;
+        }
+
+        XposedEntry.log("DynamicRuntime: Hooking " + execCallers.size() + " Runtime.exec callers");
+
+        for (MethodData methodData : execCallers) {
+            try {
+                String className = methodData.getClassName();
+                String methodName = methodData.getMethodName();
+
+                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
+                if (clazz == null) continue;
+
+                // Get method descriptor to find exact overload
+                String descriptor = methodData.getDescriptor();
+                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
+                if (method == null) continue;
+
+                XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        logCommandArgs("Runtime.exec caller: " + className, param.args);
+                    }
+                });
+
+                XposedEntry.log("Hooked Runtime.exec caller: " + className + "." + methodName);
+
+            } catch (Exception e) {
+                XposedEntry.log("Failed to hook Runtime.exec caller: " + e.getMessage());
+            }
+        }
+    }
+
+    private static void hookProcessBuilderCallers(XC_LoadPackage.LoadPackageParam lpparam) {
+        List<MethodData> pbCallers = DexKitDetector.findProcessBuilderCallers();
+        if (pbCallers.isEmpty()) {
+            XposedEntry.log("DynamicRuntime: No ProcessBuilder callers found by DexKit");
+            return;
+        }
+
+        XposedEntry.log("DynamicRuntime: Hooking " + pbCallers.size() + " ProcessBuilder callers");
+
+        for (MethodData methodData : pbCallers) {
+            try {
+                String className = methodData.getClassName();
+                String methodName = methodData.getMethodName();
+
+                Class<?> clazz = XposedHelpers.findClassIfExists(className, lpparam.classLoader);
+                if (clazz == null) continue;
+
+                String descriptor = methodData.getDescriptor();
+                Member method = findMethodByDescriptor(clazz, methodName, descriptor);
+                if (method == null) continue;
+
+                XposedBridge.hookMethod(method, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        logCommandArgs("ProcessBuilder caller: " + className, param.args);
+                    }
+                });
+
+                XposedEntry.log("Hooked ProcessBuilder caller: " + className + "." + methodName);
+
+            } catch (Exception e) {
+                XposedEntry.log("Failed to hook ProcessBuilder caller: " + e.getMessage());
+            }
+        }
+    }
+
+    private static Member findMethodByDescriptor(Class<?> clazz, String methodName, String descriptor) {
+        // Parse descriptor like "(Ljava/lang/String;)Ljava/lang/Process;"
+        // For now, use simple name matching - TODO: parse full descriptor
+        try {
+            for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
+                if (m.getName().equals(methodName)) {
+                    return m;
+                }
+            }
+        } catch (Exception e) {
+            // Ignore
+        }
+        return null;
+    }
+
+    private static void logCommandArgs(String tag, Object[] args) {
+        if (args == null) return;
+        for (Object arg : args) {
+            if (arg == null) continue;
+            String s;
+            if (arg instanceof String[]) {
+                s = java.util.Arrays.toString((String[]) arg);
+            } else {
+                s = arg.toString();
+            }
+            if (isMonitoredCommand(s)) {
+                XposedEntry.log(tag + " observed monitored command: " + s);
+            }
+        }
+    }
+
+    private static String joinCommand(java.util.List<String> command) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : command) {
+            if (part == null) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(part);
+        }
+        return sb.toString();
+    }
+
+    private static boolean isRootProbe(String joined) {
+        if (joined == null) return false;
+        String s = joined.toLowerCase();
+
+        if (s.contains("magisk") || s.contains("supersu") || s.contains("superuser")
+                || s.contains("busybox") || s.contains("ksud")
+                || s.contains("which su") || s.contains("type su") || s.contains("command -v su")
+                || s.contains("/system/bin/su") || s.contains("/system/xbin/su")
+                || s.contains("/sbin/su") || s.contains("/su/bin")
+                || s.contains("/data/local/su")) {
+            return true;
+        }
+
+        for (String tok : s.split("\\s+")) {
+            if (tok.equals("su")) return true;
+        }
+        return false;
+    }
+
+    private static boolean isMonitoredCommand(String command) {
+        if (command == null) return false;
+        for (String monitored : MONITORED_COMMANDS) {
+            if (command.contains(monitored)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

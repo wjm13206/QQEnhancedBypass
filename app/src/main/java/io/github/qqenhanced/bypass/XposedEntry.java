@@ -52,18 +52,43 @@ public class XposedEntry implements IXposedHookLoadPackage {
                 if (context != null) {
                     DexKitDetector.init(context);
 
+                    // Scan all detection points
+                    log("DexKit: Scanning Runtime.exec callers...");
+                    int runtimeExec = DexKitDetector.findRuntimeExecCallers().size();
+
+                    log("DexKit: Scanning ProcessBuilder callers...");
+                    int processBuilder = DexKitDetector.findProcessBuilderCallers().size();
+
+                    log("DexKit: Scanning su path checkers...");
+                    int suPath = DexKitDetector.findSuPathCheckers().size();
+
+                    log("DexKit: Scanning package queries...");
+                    int packageQuery = DexKitDetector.findSuspiciousPackageQueries().size();
+
+                    log("DexKit: Scanning ArtMethod hook detectors...");
                     int artHook = DexKitDetector.findArtHookDetectors().size();
+
+                    log("DexKit: Scanning /proc/self/maps readers...");
                     int mapsReader = DexKitDetector.findMapsReaders().size();
+
+                    log("DexKit: Scanning wtlogin error handlers...");
                     int wtlogin = DexKitDetector.findWtloginErrorHandlers().size();
+
+                    log("DexKit: Scanning QSec hook detectors...");
                     int qsec = DexKitDetector.findQSecHookDetectors().size();
 
                     log("=== DexKit Scan Complete ===");
+                    log("  Runtime.exec callers: " + runtimeExec);
+                    log("  ProcessBuilder callers: " + processBuilder);
+                    log("  Su path checkers: " + suPath);
+                    log("  Package queries: " + packageQuery);
                     log("  ArtMethod detectors: " + artHook);
                     log("  Maps readers: " + mapsReader);
                     log("  Wtlogin handlers: " + wtlogin);
                     log("  QSec detectors: " + qsec);
 
-                    DexKitDetector.release();
+                    // Keep DexKit alive for runtime queries
+                    // DexKitDetector.release(); // Don't release yet - hooks may need it
                 }
             } catch (Exception e) {
                 log("DexKit scan failed: " + e.getMessage());
@@ -80,8 +105,8 @@ public class XposedEntry implements IXposedHookLoadPackage {
             // Layer 1: Network reporting interception (highest priority)
             NetworkReportHook.hook(lpparam);
 
-            // Layer 2: Root detection bypass
-            RootDetectionHook.hook(lpparam);
+            // Layer 2: Root detection bypass (DexKit-based dynamic version)
+            DynamicRootDetectionHook.hook(lpparam);
 
             // Layer 3: Xposed/Hook framework detection mitigation
             XposedDetectionHook.hook(lpparam);
@@ -92,8 +117,8 @@ public class XposedEntry implements IXposedHookLoadPackage {
             // Layer 5: Debug/Emulator detection bypass
             DebugDetectionHook.hook(lpparam);
 
-            // Layer 6: Runtime monitoring bypass
-            RuntimeMonitorHook.hook(lpparam);
+            // Layer 6: Runtime monitoring bypass (DexKit-based dynamic version)
+            DynamicRuntimeMonitorHook.hook(lpparam);
 
             // Layer 7: QQ 9.3.50 detection-point completion (real risk/kick targets)
             QQ950PatchHook.hook(lpparam);

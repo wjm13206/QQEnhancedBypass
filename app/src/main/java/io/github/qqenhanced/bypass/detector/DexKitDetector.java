@@ -176,6 +176,125 @@ public class DexKitDetector {
     }
 
     /**
+     * Find Runtime.exec callers (root detection via "type su" / "which su")
+     * Target: methods calling Runtime.exec() with su-related commands
+     */
+    public static List<MethodData> findRuntimeExecCallers() {
+        if (detectionCache.containsKey("runtime_exec")) {
+            return detectionCache.get("runtime_exec");
+        }
+
+        try {
+            XposedBridge.log("[" + TAG + "] Searching for Runtime.exec callers...");
+
+            List<MethodData> results = dexKitBridge.findMethod(
+                FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                        .addInvoke("java.lang.Runtime->exec")
+                        .usingStrings("su", "type", "which", "/system/bin")
+                    )
+            );
+
+            detectionCache.put("runtime_exec", results);
+            XposedBridge.log("[" + TAG + "] Found " + results.size() + " Runtime.exec callers");
+            return results;
+        } catch (Exception e) {
+            XposedBridge.log("[" + TAG + "] Error finding Runtime.exec callers: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Find ProcessBuilder constructors/start callers (alternative to Runtime.exec)
+     */
+    public static List<MethodData> findProcessBuilderCallers() {
+        if (detectionCache.containsKey("process_builder")) {
+            return detectionCache.get("process_builder");
+        }
+
+        try {
+            XposedBridge.log("[" + TAG + "] Searching for ProcessBuilder callers...");
+
+            List<MethodData> results = dexKitBridge.findMethod(
+                FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                        .addInvoke("java.lang.ProcessBuilder->start")
+                    )
+            );
+
+            detectionCache.put("process_builder", results);
+            XposedBridge.log("[" + TAG + "] Found " + results.size() + " ProcessBuilder callers");
+            return results;
+        } catch (Exception e) {
+            XposedBridge.log("[" + TAG + "] Error finding ProcessBuilder callers: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Find File.exists callers checking su paths
+     */
+    public static List<MethodData> findSuPathCheckers() {
+        if (detectionCache.containsKey("su_path")) {
+            return detectionCache.get("su_path");
+        }
+
+        try {
+            XposedBridge.log("[" + TAG + "] Searching for su path checkers...");
+
+            List<MethodData> results = dexKitBridge.findMethod(
+                FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                        .addInvoke("java.io.File->exists")
+                        .usingStrings("/system/bin/su", "/system/xbin/su", "su")
+                    )
+            );
+
+            detectionCache.put("su_path", results);
+            XposedBridge.log("[" + TAG + "] Found " + results.size() + " su path checkers");
+            return results;
+        } catch (Exception e) {
+            XposedBridge.log("[" + TAG + "] Error finding su path checkers: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Find PackageManager queries for Magisk/LSPosed packages
+     */
+    public static List<MethodData> findSuspiciousPackageQueries() {
+        if (detectionCache.containsKey("package_query")) {
+            return detectionCache.get("package_query");
+        }
+
+        try {
+            XposedBridge.log("[" + TAG + "] Searching for suspicious package queries...");
+
+            List<MethodData> results = dexKitBridge.findMethod(
+                FindMethod.create()
+                    .matcher(MethodMatcher.create()
+                        .addInvoke("android.content.pm.PackageManager->getPackageInfo")
+                        .usingStrings("magisk", "lsposed", "xposed", "supersu")
+                    )
+            );
+
+            detectionCache.put("package_query", results);
+            XposedBridge.log("[" + TAG + "] Found " + results.size() + " package query methods");
+            return results;
+        } catch (Exception e) {
+            XposedBridge.log("[" + TAG + "] Error finding package queries: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Get all cached detection results
+     */
+    public static Map<String, List<MethodData>> getAllDetectionResults() {
+        return new HashMap<>(detectionCache);
+    }
+
+    /**
      * Release DexKit resources
      */
     public static void release() {
