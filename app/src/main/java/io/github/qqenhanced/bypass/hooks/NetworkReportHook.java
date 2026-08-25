@@ -1,8 +1,17 @@
 package io.github.qqenhanced.bypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
+
+import org.luckypray.dexkit.DexKitBridge;
+import org.luckypray.dexkit.query.FindMethod;
+import org.luckypray.dexkit.query.matchers.MethodMatcher;
+import org.luckypray.dexkit.result.MethodData;
+
+import java.lang.reflect.Member;
+import java.util.List;
 
 import io.github.qqenhanced.bypass.XposedEntry;
 import io.github.qqenhanced.bypass.config.HookConfig;
@@ -138,24 +147,80 @@ public class NetworkReportHook {
             });
     }
 
+    /**
+     * Block TuringFD's process-enumeration readers (anti-tamper /proc scanners).
+     *
+     * These live in ProGuard-obfuscated "fruit" classes (Pomegranate / oqKCa on
+     * 9.3.50) whose names change every QQ version, so hardcoding them is fragile.
+     * Instead we locate them by a stable fingerprint: the format string
+     * "/proc/%d/cmdline" they use to read another process's name. Verified to
+     * occur in only 2 dex (classes2 + classes18) on 9.3.50, so the match is tight.
+     *
+     * The old code hooked every method named "a" and setResult(null) on all of
+     * them. That was wrong twice over: Blueberry.a doesn't exist (dead hook), and
+     * oqKCa.a has an int-returning overload where setResult(null) throws an
+     * uncatchable ClassCastException. Here we resolve the exact method via
+     * getMethodInstance() and only neutralize String-returning readers (-> "").
+     */
     private static void hookTuringFD(XC_LoadPackage.LoadPackageParam lpparam) {
-        // Block TuringFD risk detection initialization and reporting
-        String[] turingClasses = {
-            "com.tencent.turingfd.sdk.xq.Pomegranate",
-            "com.tencent.turingfd.sdk.xq.Blueberry",
-            "com.tencent.turingcam.oqKCa"
-        };
-
-        for (String className : turingClasses) {
-            // Hook init/report methods to prevent detection
-            HookUtils.hookAllMethods(className, "a", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    // Block all TuringFD operations
-                    param.setResult(null);
+        new Thread(() -> {
+            DexKitBridge bridge = null;
+            try {
+                android.content.Context context = (android.content.Context)
+                    XposedHelpers.callStaticMethod(
+                        XposedHelpers.findClass("android.app.ActivityThread", lpparam.classLoader),
+                        "currentApplication");
+                if (context == null) {
+                    XposedEntry.log("[TuringFD] context not ready, skip proc-reader hook");
+                    return;
                 }
-            });
-        }
+
+                String apkPath = context.getApplicationInfo().sourceDir;
+                bridge = DexKitBridge.create(apkPath);
+
+                List<MethodData> procReaders = bridge.findMethod(
+                    FindMethod.create()
+                        .matcher(MethodMatcher.create()
+                            .usingStrings("/proc/%d/cmdline"))
+                );
+                XposedEntry.log("[TuringFD] found " + procReaders.size() + " proc readers by fingerprint");
+
+                for (MethodData md : procReaders) {
+                    try {
+                        Member method = md.getMethodInstance(lpparam.classLoader);
+                        // Only neutralize String-returning readers; skip primitives
+                        // (int helper overload) to avoid a ClassCastException crash.
+                        if (!(method instanceof java.lang.reflect.Method)) continue;
+                        Class<?> ret = ((java.lang.reflect.Method) method).getReturnType();
+                        if (ret != String.class) {
+                            XposedEntry.log("[TuringFD] skip non-String reader "
+                                + md.getClassName() + "." + md.getMethodName()
+                                + " (returns " + ret.getName() + ")");
+                            continue;
+                        }
+                        XposedBridge.hookMethod(method, new XC_MethodHook() {
+                            @Override
+                            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                                // Empty name = "process not readable"; callers isEmpty-check this.
+                                param.setResult("");
+                            }
+                        });
+                        XposedEntry.log("[TuringFD] neutralized proc reader: "
+                            + md.getClassName() + "." + md.getMethodName());
+                    } catch (Throwable t) {
+                        XposedEntry.log("[TuringFD] failed to hook proc reader: "
+                            + t.getClass().getSimpleName() + ": " + t.getMessage());
+                    }
+                }
+            } catch (Throwable t) {
+                XposedEntry.log("[TuringFD] proc-reader lookup failed: "
+                    + t.getClass().getName() + ": " + t.getMessage());
+            } finally {
+                if (bridge != null) {
+                    try { bridge.close(); } catch (Throwable ignored) { }
+                }
+            }
+        }).start();
     }
 
     private static void hookWlogin(XC_LoadPackage.LoadPackageParam lpparam) {

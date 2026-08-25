@@ -1,7 +1,12 @@
 package io.github.qqenhanced.bypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 import io.github.qqenhanced.bypass.XposedEntry;
 import io.github.qqenhanced.bypass.config.HookConfig;
@@ -52,17 +57,37 @@ public class QQ950PatchHook {
      */
     private static void hookKickBackstop() {
         final String cls = "com.tencent.mobileqq.kick.NTKickProcessor";
-        if (!HookUtils.classExists(cls)) {
+        Class<?> clazz = XposedHelpers.findClassIfExists(cls, HookConfig.getClassLoader());
+        if (clazz == null) {
             XposedEntry.log("[QQ950] NTKickProcessor not present, skip kick backstop");
             return;
         }
-        HookUtils.hookAllMethods(cls, "b", new XC_MethodHook() {
-            @Override
-            protected void beforeHookedMethod(MethodHookParam p) throws Throwable {
-                p.setResult(null); // b() returns void - crash-safe
-                XposedEntry.log("[QQ950] blocked NTKickProcessor.b (kick suppressed)");
+        // The kick-clearing method is obfuscated ("b" on 9.3.50) and will be
+        // renamed across versions. Locate it by a stable signature instead: a
+        // void method whose parameters include a Constants$LogoutReason. The
+        // public entry a(AppRuntime, KickedInfo) lacks that param, so this
+        // matches only the internal logout worker.
+        int hooked = 0;
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (m.getReturnType() != void.class) continue;
+            boolean hasLogoutReason = false;
+            for (Class<?> pt : m.getParameterTypes()) {
+                if (pt.getName().contains("LogoutReason")) { hasLogoutReason = true; break; }
             }
-        });
+            if (!hasLogoutReason) continue;
+            XposedBridge.hookMethod(m, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam p) throws Throwable {
+                    p.setResult(null); // void - crash-safe
+                    XposedEntry.log("[QQ950] blocked kick worker (kick suppressed)");
+                }
+            });
+            hooked++;
+            XposedEntry.log("[QQ950] hooked kick worker by signature: " + m.getName());
+        }
+        if (hooked == 0) {
+            XposedEntry.log("[QQ950] no kick worker matched signature (void + LogoutReason)");
+        }
     }
 
     /**
@@ -93,14 +118,27 @@ public class QQ950PatchHook {
      */
     private static void hookTuringWrapper() {
         final String cls = "com.tencent.mobileqq.dt.model.TuringWrapper";
-        if (!HookUtils.classExists(cls)) return;
-        for (String m : new String[]{"b", "c"}) {
-            HookUtils.hookAllMethods(cls, m, new XC_MethodHook() {
+        Class<?> clazz = XposedHelpers.findClassIfExists(cls, HookConfig.getClassLoader());
+        if (clazz == null) return;
+        // b()/c() are the obfuscated turing-cache writers: both static, void, no
+        // args. a() returns AtomicBoolean (state getter) and is left untouched.
+        // Match by signature so a version rename of b/c still resolves them.
+        int hooked = 0;
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (!Modifier.isStatic(m.getModifiers())) continue;
+            if (m.getReturnType() != void.class) continue;
+            if (m.getParameterTypes().length != 0) continue;
+            XposedBridge.hookMethod(m, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam p) throws Throwable {
                     p.setResult(null); // void - crash-safe
                 }
             });
+            hooked++;
+            XposedEntry.log("[QQ950] hooked TuringWrapper switch by signature: " + m.getName());
+        }
+        if (hooked == 0) {
+            XposedEntry.log("[QQ950] no TuringWrapper switch matched (static void no-arg)");
         }
     }
 
