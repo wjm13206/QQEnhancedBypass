@@ -34,11 +34,14 @@ public class DynamicRuntimeMonitorHook {
         hookProcessBuilder();
 
         // Dynamic hooks: DexKit-discovered Runtime.exec callers
-        // Run in background thread since DexKit scan may not be complete yet
+        // Run in background thread; wait for the shared scan instead of a fixed
+        // sleep (the old sleep(5000) raced the scan and read an empty cache).
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // Wait for DexKit scan to complete
-
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("DynamicRuntime: DexKit not available, skipping dynamic hooks");
+                    return;
+                }
                 hookRuntimeExecCallers(lpparam);
                 hookProcessBuilderCallers(lpparam);
 

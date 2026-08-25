@@ -15,6 +15,7 @@ import java.util.List;
 
 import io.github.qqenhanced.bypass.XposedEntry;
 import io.github.qqenhanced.bypass.config.HookConfig;
+import io.github.qqenhanced.bypass.detector.DexKitDetector;
 import io.github.qqenhanced.bypass.utils.HookUtils;
 
 /**
@@ -164,19 +165,17 @@ public class NetworkReportHook {
      */
     private static void hookTuringFD(XC_LoadPackage.LoadPackageParam lpparam) {
         new Thread(() -> {
-            DexKitBridge bridge = null;
             try {
-                android.content.Context context = (android.content.Context)
-                    XposedHelpers.callStaticMethod(
-                        XposedHelpers.findClass("android.app.ActivityThread", lpparam.classLoader),
-                        "currentApplication");
-                if (context == null) {
-                    XposedEntry.log("[TuringFD] context not ready, skip proc-reader hook");
+                // Wait for the single shared bridge; false in a subprocess (gated off).
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("[TuringFD] DexKit not available, skip proc-reader hook");
                     return;
                 }
-
-                String apkPath = context.getApplicationInfo().sourceDir;
-                bridge = DexKitBridge.create(apkPath);
+                DexKitBridge bridge = DexKitDetector.getBridge();
+                if (bridge == null) {
+                    XposedEntry.log("[TuringFD] shared bridge null, skip proc-reader hook");
+                    return;
+                }
 
                 List<MethodData> procReaders = bridge.findMethod(
                     FindMethod.create()
@@ -215,11 +214,8 @@ public class NetworkReportHook {
             } catch (Throwable t) {
                 XposedEntry.log("[TuringFD] proc-reader lookup failed: "
                     + t.getClass().getName() + ": " + t.getMessage());
-            } finally {
-                if (bridge != null) {
-                    try { bridge.close(); } catch (Throwable ignored) { }
-                }
             }
+            // Shared bridge - do NOT close (owned by DexKitDetector)
         }).start();
     }
 

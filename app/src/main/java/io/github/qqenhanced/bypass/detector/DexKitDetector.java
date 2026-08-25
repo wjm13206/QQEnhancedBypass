@@ -12,36 +12,86 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import de.robv.android.xposed.XposedBridge;
 
 /**
- * DexKit-based detector for dynamically locating obfuscated detection points in QQ
- * Eliminates hardcoded class/method names to survive version updates
+ * DexKit-based detector for dynamically locating obfuscated detection points in QQ.
+ * Eliminates hardcoded class/method names to survive version updates.
+ *
+ * Single shared bridge: DexKitBridge.create() parses the whole APK (~112MB on
+ * 9.3.50), so creating one per hook meant 5 full parses per process and, across
+ * QQ's several processes, a memory/CPU spike that could get the process killed on
+ * cold start. This class now owns ONE bridge; all hooks reuse it via getBridge()
+ * after awaitReady(). The bridge is thread-safe (ReentrantReadWriteLock + shared
+ * query scheduler), so concurrent findMethod() from multiple hook threads is fine.
+ *
+ * Process gate: only the process that calls setEnabled(true) (the main QQ process)
+ * builds a bridge; subprocesses skip DexKit entirely (awaitReady returns false
+ * immediately), keeping the universal framework hooks but paying no parse cost.
  */
 public class DexKitDetector {
     private static final String TAG = "DexKitDetector";
-    private static DexKitBridge dexKitBridge;
-    private static final Map<String, List<MethodData>> detectionCache = new HashMap<>();
+    private static volatile DexKitBridge dexKitBridge;
+    private static volatile boolean enabled = false; // set true only in the gated (main) process
+    private static volatile boolean ready = false;   // bridge created and usable
+    private static final Object initLock = new Object();
+    private static final CountDownLatch readyLatch = new CountDownLatch(1);
+    // ConcurrentHashMap: findXxx() may now run from multiple hook threads at once.
+    private static final Map<String, List<MethodData>> detectionCache = new ConcurrentHashMap<>();
+
+    /** Enable DexKit for this process. Call only in the main process. */
+    public static void setEnabled(boolean value) { enabled = value; }
+    public static boolean isEnabled() { return enabled; }
+    public static boolean isReady() { return ready; }
+    public static DexKitBridge getBridge() { return dexKitBridge; }
 
     /**
-     * Initialize DexKit with target app's APK path
+     * Block until the shared bridge is ready, up to timeoutMs.
+     * Returns false immediately in a non-enabled (sub)process so callers skip
+     * DexKit work instead of blocking for the full timeout.
+     */
+    public static boolean awaitReady(long timeoutMs) {
+        if (ready) return true;
+        if (!enabled) return false;
+        try {
+            readyLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        return ready;
+    }
+
+    /**
+     * Initialize the single shared DexKit bridge (idempotent). Only the first
+     * caller creates it; the readyLatch is always released so awaitReady() waiters
+     * wake even if creation fails.
      */
     public static void init(Context context) {
-        try {
-            ApplicationInfo appInfo = context.getApplicationInfo();
-            String apkPath = appInfo.sourceDir;
+        if (ready) return;
+        synchronized (initLock) {
+            if (ready) return;
+            try {
+                ApplicationInfo appInfo = context.getApplicationInfo();
+                String apkPath = appInfo.sourceDir;
 
-            XposedBridge.log("[" + TAG + "] Initializing DexKit with APK: " + apkPath);
-            // Explicitly load libdexkit.so before create(). In an LSPosed host process
-            // System.loadLibrary("dexkit") (what create() calls) often can't find the
-            // module's native lib on the host's library path -> UnsatisfiedLinkError.
-            loadDexKitNativeLib(context);
-            dexKitBridge = DexKitBridge.create(apkPath);
-            XposedBridge.log("[" + TAG + "] DexKit initialized successfully");
-        } catch (Throwable e) {
-            XposedBridge.log("[" + TAG + "] Failed to initialize DexKit: "
-                + e.getClass().getName() + ": " + e.getMessage());
+                XposedBridge.log("[" + TAG + "] Initializing DexKit with APK: " + apkPath);
+                // Explicitly load libdexkit.so before create(). In an LSPosed host
+                // process System.loadLibrary("dexkit") (what create() calls) can fail
+                // to find the module's native lib on the host path -> UnsatisfiedLinkError.
+                loadDexKitNativeLib(context);
+                dexKitBridge = DexKitBridge.create(apkPath);
+                ready = true;
+                XposedBridge.log("[" + TAG + "] DexKit initialized successfully");
+            } catch (Throwable e) {
+                XposedBridge.log("[" + TAG + "] Failed to initialize DexKit: "
+                    + e.getClass().getName() + ": " + e.getMessage());
+            } finally {
+                readyLatch.countDown();
+            }
         }
     }
 
@@ -333,15 +383,23 @@ public class DexKitDetector {
     }
 
     /**
-     * Release DexKit resources
+     * Release DexKit resources. Note: hooks resolve their target Members during
+     * the scan and don't need the bridge afterward, but we keep it alive by
+     * default (release not called from XposedEntry) so late/lazy findXxx() calls
+     * still work. Call explicitly only when you know no more queries will run.
      */
     public static void release() {
-        if (dexKitBridge != null) {
-            try {
-                dexKitBridge.close();
-                XposedBridge.log("[" + TAG + "] DexKit released");
-            } catch (Exception e) {
-                XposedBridge.log("[" + TAG + "] Error releasing DexKit: " + e.getMessage());
+        synchronized (initLock) {
+            ready = false;
+            if (dexKitBridge != null) {
+                try {
+                    dexKitBridge.close();
+                    XposedBridge.log("[" + TAG + "] DexKit released");
+                } catch (Exception e) {
+                    XposedBridge.log("[" + TAG + "] Error releasing DexKit: " + e.getMessage());
+                } finally {
+                    dexKitBridge = null;
+                }
             }
         }
     }

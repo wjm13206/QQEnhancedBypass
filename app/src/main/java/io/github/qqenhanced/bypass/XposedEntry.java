@@ -36,9 +36,18 @@ public class XposedEntry implements IXposedHookLoadPackage {
         // Initialize configuration
         HookConfig.init(lpparam);
 
+        // Process gate: DexKitBridge.create() parses the whole ~112MB APK. QQ runs
+        // several processes (main, :MSF, ...); parsing in every one caused a
+        // memory/CPU spike that could get the process killed on cold start (the
+        // "1-2s flash-exit"). Only the main process runs DexKit; subprocesses keep
+        // the cheap universal framework hooks. main process: processName == packageName.
+        boolean isMainProcess = lpparam.packageName.equals(lpparam.processName);
+        DexKitDetector.setEnabled(isMainProcess);
+        log("DexKit enabled for this process: " + isMainProcess);
+
         // === DexKit Dynamic Detection (Background Thread) ===
         // Scan for obfuscated detection points to avoid version-specific hardcoding
-        new Thread(() -> {
+        if (isMainProcess) new Thread(() -> {
             try {
                 log("=== DexKit: Starting dynamic scan ===");
                 Thread.sleep(3000); // Wait for app context

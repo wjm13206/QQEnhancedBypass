@@ -27,8 +27,12 @@ public class DynamicXposedDetectionHook {
         // Dynamic hooks: DexKit-discovered detection points
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // Wait for DexKit scan
-
+                // Wait for the shared scan instead of a fixed sleep (the old
+                // sleep(5000) raced the scan and read an empty cache).
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("DynamicXposed: DexKit not available, skipping dynamic hooks");
+                    return;
+                }
                 hookArtMethodDetectors(lpparam);
                 hookMapsReaders(lpparam);
                 hookQSecDetectors(lpparam);

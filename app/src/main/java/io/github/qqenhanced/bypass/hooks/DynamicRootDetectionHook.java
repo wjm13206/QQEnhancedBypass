@@ -46,8 +46,13 @@ public class DynamicRootDetectionHook {
         // Dynamic hooks: DexKit-discovered su path checkers
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // Wait for DexKit scan
-
+                // Wait for the shared scan to finish instead of a fixed sleep.
+                // The old sleep(5000) raced the scan and read an empty cache;
+                // awaitReady() blocks until the bridge is up (false = subprocess).
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("DynamicRoot: DexKit not available, skipping dynamic hooks");
+                    return;
+                }
                 hookSuPathCheckers(lpparam);
                 hookPackageQueries(lpparam);
 

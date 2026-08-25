@@ -4,7 +4,6 @@ import android.os.Build;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import org.luckypray.dexkit.DexKitBridge;
@@ -41,8 +40,12 @@ public class DynamicDeviceInfoHook {
 
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // Wait for DexKit scan
-
+                // Wait for the single shared bridge instead of building our own.
+                // Returns false immediately in a subprocess (DexKit gated off).
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("DynamicDevice: DexKit not available, skipping");
+                    return;
+                }
                 hookDeviceInfoReaders(lpparam);
 
             } catch (Exception e) {
@@ -55,19 +58,12 @@ public class DynamicDeviceInfoHook {
         try {
             XposedEntry.log("DynamicDevice: Searching for device info readers...");
 
-            // Use DexKit to find methods reading device identifiers
-            android.content.Context context = (android.content.Context)
-                XposedHelpers.callStaticMethod(
-                    XposedHelpers.findClass("android.app.ActivityThread", lpparam.classLoader),
-                    "currentApplication");
-
-            if (context == null) {
-                XposedEntry.log("DynamicDevice: Context not ready, skipping");
+            // Reuse the shared bridge (owned by DexKitDetector); do NOT close it here.
+            DexKitBridge bridge = DexKitDetector.getBridge();
+            if (bridge == null) {
+                XposedEntry.log("DynamicDevice: shared bridge null, skipping");
                 return;
             }
-
-            String apkPath = context.getApplicationInfo().sourceDir;
-            DexKitBridge bridge = DexKitBridge.create(apkPath);
 
             // Find methods calling TelephonyManager.getDeviceId (IMEI)
             List<MethodData> imeiReaders = bridge.findMethod(
@@ -100,7 +96,7 @@ public class DynamicDeviceInfoHook {
                     )
             );
 
-            bridge.close();
+            // Shared bridge - do NOT close (owned by DexKitDetector)
 
             XposedEntry.log("DynamicDevice: Found " + imeiReaders.size() + " IMEI readers");
             XposedEntry.log("DynamicDevice: Found " + androidIdReaders.size() + " Android ID readers");

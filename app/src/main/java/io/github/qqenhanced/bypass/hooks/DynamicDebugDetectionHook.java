@@ -4,7 +4,6 @@ import android.os.Debug;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import org.luckypray.dexkit.DexKitBridge;
@@ -17,6 +16,7 @@ import java.util.List;
 
 import io.github.qqenhanced.bypass.XposedEntry;
 import io.github.qqenhanced.bypass.config.HookConfig;
+import io.github.qqenhanced.bypass.detector.DexKitDetector;
 import io.github.qqenhanced.bypass.utils.HookUtils;
 
 /**
@@ -36,8 +36,11 @@ public class DynamicDebugDetectionHook {
         // Dynamic hooks: DexKit-discovered debug/emulator checkers
         new Thread(() -> {
             try {
-                Thread.sleep(5000); // Wait for DexKit scan
-
+                // Wait for the single shared bridge; false in a subprocess (gated off).
+                if (!DexKitDetector.awaitReady(30000)) {
+                    XposedEntry.log("DynamicDebug: DexKit not available, skipping");
+                    return;
+                }
                 hookDebugCheckers(lpparam);
                 hookEmulatorCheckers(lpparam);
 
@@ -64,18 +67,12 @@ public class DynamicDebugDetectionHook {
         try {
             XposedEntry.log("DynamicDebug: Searching for debug checkers...");
 
-            android.content.Context context = (android.content.Context)
-                XposedHelpers.callStaticMethod(
-                    XposedHelpers.findClass("android.app.ActivityThread", lpparam.classLoader),
-                    "currentApplication");
-
-            if (context == null) {
-                XposedEntry.log("DynamicDebug: Context not ready, skipping");
+            // Reuse the shared bridge (owned by DexKitDetector); do NOT close it here.
+            DexKitBridge bridge = DexKitDetector.getBridge();
+            if (bridge == null) {
+                XposedEntry.log("DynamicDebug: shared bridge null, skipping");
                 return;
             }
-
-            String apkPath = context.getApplicationInfo().sourceDir;
-            DexKitBridge bridge = DexKitBridge.create(apkPath);
 
             // Find methods calling Debug.isDebuggerConnected()
             List<MethodData> debugCheckers = bridge.findMethod(
@@ -87,15 +84,16 @@ public class DynamicDebugDetectionHook {
                     )
             );
 
-            // Find methods reading TracerPid from /proc/self/status
+            // Find methods reading TracerPid from /proc/self/status.
+            // usingStrings(vararg) is AND, so keep to the single strongest marker.
             List<MethodData> tracerPidReaders = bridge.findMethod(
                 FindMethod.create()
                     .matcher(MethodMatcher.create()
-                        .usingStrings("TracerPid", "/proc/self/status", "/proc/")
+                        .usingStrings("TracerPid")
                     )
             );
 
-            bridge.close();
+            // Shared bridge - do NOT close (owned by DexKitDetector)
 
             XposedEntry.log("DynamicDebug: Found " + debugCheckers.size() + " debug checkers");
             XposedEntry.log("DynamicDebug: Found " + tracerPidReaders.size() + " TracerPid readers");
@@ -113,15 +111,12 @@ public class DynamicDebugDetectionHook {
         try {
             XposedEntry.log("DynamicDebug: Searching for emulator checkers...");
 
-            android.content.Context context = (android.content.Context)
-                XposedHelpers.callStaticMethod(
-                    XposedHelpers.findClass("android.app.ActivityThread", lpparam.classLoader),
-                    "currentApplication");
-
-            if (context == null) return;
-
-            String apkPath = context.getApplicationInfo().sourceDir;
-            DexKitBridge bridge = DexKitBridge.create(apkPath);
+            // Reuse the shared bridge (owned by DexKitDetector); do NOT close it here.
+            DexKitBridge bridge = DexKitDetector.getBridge();
+            if (bridge == null) {
+                XposedEntry.log("DynamicDebug: shared bridge null, skipping");
+                return;
+            }
 
             // Find methods checking emulator markers
             List<MethodData> emulatorCheckers = bridge.findMethod(
@@ -131,7 +126,7 @@ public class DynamicDebugDetectionHook {
                     )
             );
 
-            bridge.close();
+            // Shared bridge - do NOT close (owned by DexKitDetector)
 
             XposedEntry.log("DynamicDebug: Found " + emulatorCheckers.size() + " emulator checkers");
 
