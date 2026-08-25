@@ -111,8 +111,9 @@ public class DynamicDeviceInfoHook {
             hookDeviceReaderList(lpparam, androidIdReaders, "AndroidID");
             hookDeviceReaderList(lpparam, serialReaders, "Serial");
 
-        } catch (Exception e) {
-            XposedEntry.log("Failed to hook device readers: " + e.getMessage());
+        } catch (Throwable e) {
+            XposedEntry.log("Failed to hook device readers: "
+                + e.getClass().getName() + ": " + e.getMessage());
         }
     }
 

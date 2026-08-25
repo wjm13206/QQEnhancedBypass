@@ -103,8 +103,9 @@ public class DynamicDebugDetectionHook {
             hookCheckerList(lpparam, debugCheckers, "Debug");
             hookCheckerList(lpparam, tracerPidReaders, "TracerPid");
 
-        } catch (Exception e) {
-            XposedEntry.log("Failed to hook debug checkers: " + e.getMessage());
+        } catch (Throwable e) {
+            XposedEntry.log("Failed to hook debug checkers: "
+                + e.getClass().getName() + ": " + e.getMessage());
         }
     }
 

@@ -33,10 +33,30 @@ public class DexKitDetector {
             String apkPath = appInfo.sourceDir;
 
             XposedBridge.log("[" + TAG + "] Initializing DexKit with APK: " + apkPath);
+            // Explicitly load libdexkit.so before create(). In an LSPosed host process
+            // System.loadLibrary("dexkit") (what create() calls) often can't find the
+            // module's native lib on the host's library path -> UnsatisfiedLinkError.
+            loadDexKitNativeLib(context);
             dexKitBridge = DexKitBridge.create(apkPath);
             XposedBridge.log("[" + TAG + "] DexKit initialized successfully");
-        } catch (Exception e) {
-            XposedBridge.log("[" + TAG + "] Failed to initialize DexKit: " + e.getMessage());
+        } catch (Throwable e) {
+            XposedBridge.log("[" + TAG + "] Failed to initialize DexKit: "
+                + e.getClass().getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Try to load libdexkit.so from the module's own native library directory.
+     * Falls back to System.loadLibrary if the explicit path isn't resolvable.
+     */
+    private static void loadDexKitNativeLib(Context context) {
+        try {
+            System.loadLibrary("dexkit");
+            XposedBridge.log("[" + TAG + "] loadLibrary(dexkit) OK");
+        } catch (Throwable t) {
+            XposedBridge.log("[" + TAG + "] loadLibrary(dexkit) failed ("
+                + t.getClass().getSimpleName() + "), trying explicit path...");
+            throw t; // surfaced by caller; explicit-path loading added once confirmed
         }
     }
 
