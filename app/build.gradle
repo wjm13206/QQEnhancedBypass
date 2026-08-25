@@ -11,7 +11,7 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 1
-        versionName "1.0.7"
+        versionName "1.0.8"
 
         externalNativeBuild {
             cmake {
@@ -60,4 +60,9 @@ dependencies {
 
     // DexKit - 高性能 dex 字节码搜索库，用于动态定位混淆后的检测点
     implementation 'org.luckypray:dexkit:2.0.0'
+
+    // Kotlin 标准库 - DexKit 的 POM 把它声明为 runtime 作用域，不进编译 classpath，
+    // 从 Java 调用 DexKit 时 javac 无法解析其方法签名里的 kotlin.Unit / Function1，
+    // 故显式以 implementation 引入（编译 + 运行都需要）
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
 }
