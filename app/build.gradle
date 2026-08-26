@@ -58,6 +58,10 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 有 keystore.properties 才用自定义签名；缺失则回退默认，避免构建失败
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig signingConfigs.mySign
+            }
         }
     }
 
