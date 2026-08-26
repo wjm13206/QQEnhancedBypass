@@ -257,13 +257,14 @@ lsposed, libriru, zygisk, frida, libsubstrate...
 
 ## 参考资料
 
-本项目基于对 QQ 检测机制的深度分析，详见：
-- `E:\QQ_HOOK\1.txt` - QQ 检测机制全景分析报告
-- `E:\QQ_HOOK\项目总结.txt` - 原项目能力边界分析
+本项目基于对 QQ 检测机制的深度分析开发。
+
+> 注：此分支（`qq-9.3.50-adaptation`）为**硬编码适配**版本，检测点按固定类名/方法名 hook。
+> 抗版本更新的 DexKit 动态定位重构见 `dexkit-dynamic-detection` 分支。
 
 ## 许可证
 
-MIT License
+本项目采用 GNU General Public License v3.0 (GPL-3.0) 授权，详见 [LICENSE](LICENSE)。
 
 ## 贡献
 
