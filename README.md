@@ -204,7 +204,7 @@ QQ 频繁更新，混淆类名/方法名会变化。本模块用 DexKit 按特�
 
 ## 致谢与参考
 
-- [1.txt](https://github.com/jhl337/QQNTHookBypass/issues/5) - 项目分析及灵感，后续测试也与YIDYIF一同完成
+- [YIDYIF]((https://github.com/YIDYIF)) - 测试与YIDYIF一同完成
 - [DexKit](https://github.com/LuckyPray/DexKit) - 高性能 dex 反混淆/特征定位库
 - [ByteHook](https://github.com/bytedance/bytehook) - Android PLT hook 框架
 - [LSPosed](https://github.com/LSPosed/LSPosed) - Xposed 框架
