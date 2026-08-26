@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.utils;
+package io.github.xalsace.qqbypass.utils;
 
 import android.util.Log;
 
@@ -6,7 +6,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
-import io.github.qqenhanced.bypass.config.HookConfig;
+import io.github.xalsace.qqbypass.config.HookConfig;
 
 import java.lang.reflect.Method;
 

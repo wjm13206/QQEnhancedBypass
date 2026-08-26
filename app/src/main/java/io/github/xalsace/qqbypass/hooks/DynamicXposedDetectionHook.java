@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.hooks;
+package io.github.xalsace.qqbypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -9,9 +9,9 @@ import org.luckypray.dexkit.result.MethodData;
 import java.lang.reflect.Member;
 import java.util.List;
 
-import io.github.qqenhanced.bypass.XposedEntry;
-import io.github.qqenhanced.bypass.config.HookConfig;
-import io.github.qqenhanced.bypass.detector.DexKitDetector;
+import io.github.xalsace.qqbypass.XposedEntry;
+import io.github.xalsace.qqbypass.config.HookConfig;
+import io.github.xalsace.qqbypass.detector.DexKitDetector;
 
 /**
  * DexKit-based Xposed/LSPosed Detection Bypass
@@ -235,7 +235,7 @@ public class DynamicXposedDetectionHook {
             || lower.contains("frida") || lower.contains("substrate")
             || lower.contains("/data/adb") || lower.contains("shamiko")
             // Filter our own module
-            || lower.contains("qqenhanced") || lower.contains("bypass")
+            || lower.contains("xalsace") || lower.contains("bypass")
             || lower.contains("libnative-bypass.so");
     }
 }

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.18.1)
 
-project("qqenhancedbypass")
+project("xalsaceqqbypass")
 
 # ByteHook (通过 prefab 提供的预编译库，无需编译任何汇编)
 find_package(bytehook REQUIRED CONFIG)

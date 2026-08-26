@@ -90,7 +90,7 @@ static void* install_hooks_thread(void* arg) {
  * Initialize native hooks
  */
 extern "C" JNIEXPORT void JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_initNativeHooksNative(JNIEnv* env, jclass clazz) {
+Java_io_github_xalsace_qqbypass_NativeBypass_initNativeHooksNative(JNIEnv* env, jclass clazz) {
     LOGI("initNativeHooks called");
 
     if (g_hooks_installed) {
@@ -112,7 +112,7 @@ Java_io_github_qqenhanced_bypass_NativeBypass_initNativeHooksNative(JNIEnv* env,
  * Check if hooks are installed
  */
 extern "C" JNIEXPORT jboolean JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_isHooksInstalledNative(JNIEnv* env, jclass clazz) {
+Java_io_github_xalsace_qqbypass_NativeBypass_isHooksInstalledNative(JNIEnv* env, jclass clazz) {
     return g_hooks_installed;
 }
 
@@ -120,7 +120,7 @@ Java_io_github_qqenhanced_bypass_NativeBypass_isHooksInstalledNative(JNIEnv* env
  * Get hook status message
  */
 extern "C" JNIEXPORT jstring JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_getHookStatusNative(JNIEnv* env, jclass clazz) {
+Java_io_github_xalsace_qqbypass_NativeBypass_getHookStatusNative(JNIEnv* env, jclass clazz) {
     if (g_hooks_installed) {
         return env->NewStringUTF("Native hooks installed successfully");
     } else {
@@ -132,7 +132,7 @@ Java_io_github_qqenhanced_bypass_NativeBypass_getHookStatusNative(JNIEnv* env, j
  * Notify Native layer about Java detection event (Java → Native communication)
  */
 extern "C" JNIEXPORT void JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_notifyDetectionNative(
+Java_io_github_xalsace_qqbypass_NativeBypass_notifyDetectionNative(
     JNIEnv* env, jclass clazz, jstring event, jstring data) {
 
     const char* event_str = env->GetStringUTFChars(event, nullptr);
@@ -155,7 +155,7 @@ Java_io_github_qqenhanced_bypass_NativeBypass_notifyDetectionNative(
  * Check if specific hook is active
  */
 extern "C" JNIEXPORT jboolean JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_isHookActiveNative(
+Java_io_github_xalsace_qqbypass_NativeBypass_isHookActiveNative(
     JNIEnv* env, jclass clazz, jstring hookName) {
 
     const char* hook_name = env->GetStringUTFChars(hookName, nullptr);
@@ -180,7 +180,7 @@ static int g_fgets_intercepts = 0;
 static int g_system_blocks = 0;
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_io_github_qqenhanced_bypass_NativeBypass_getHookStatisticsNative(
+Java_io_github_xalsace_qqbypass_NativeBypass_getHookStatisticsNative(
     JNIEnv* env, jclass clazz) {
 
     char stats[512];

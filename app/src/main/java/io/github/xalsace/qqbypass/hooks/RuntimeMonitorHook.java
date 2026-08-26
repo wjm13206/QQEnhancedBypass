@@ -1,11 +1,11 @@
-package io.github.qqenhanced.bypass.hooks;
+package io.github.xalsace.qqbypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-import io.github.qqenhanced.bypass.XposedEntry;
-import io.github.qqenhanced.bypass.config.HookConfig;
-import io.github.qqenhanced.bypass.utils.HookUtils;
+import io.github.xalsace.qqbypass.XposedEntry;
+import io.github.xalsace.qqbypass.config.HookConfig;
+import io.github.xalsace.qqbypass.utils.HookUtils;
 
 /**
  * Runtime Monitor Bypass

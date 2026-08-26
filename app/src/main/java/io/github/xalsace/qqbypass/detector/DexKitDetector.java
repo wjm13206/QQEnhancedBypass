@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.detector;
+package io.github.xalsace.qqbypass.detector;
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;

@@ -43,7 +43,7 @@ static FILE* build_filtered_maps() {
         "magisk", "ksu", "kernelsu", "supersu", "superuser",
         // OUR OWN injection footprint - previously leaked in the "filtered" maps,
         // exposing the module to any /proc/self/maps scan (a self-own).
-        "libnative-bypass", "libbytehook", "qqenhanced", "qq_hook",
+        "libnative-bypass", "libbytehook", "xalsace", "qq_hook",
         nullptr
     };
 

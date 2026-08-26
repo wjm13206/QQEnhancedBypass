@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.hooks;
+package io.github.xalsace.qqbypass.hooks;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
@@ -9,10 +9,10 @@ import org.luckypray.dexkit.result.MethodData;
 import java.lang.reflect.Member;
 import java.util.List;
 
-import io.github.qqenhanced.bypass.XposedEntry;
-import io.github.qqenhanced.bypass.config.HookConfig;
-import io.github.qqenhanced.bypass.detector.DexKitDetector;
-import io.github.qqenhanced.bypass.utils.HookUtils;
+import io.github.xalsace.qqbypass.XposedEntry;
+import io.github.xalsace.qqbypass.config.HookConfig;
+import io.github.xalsace.qqbypass.detector.DexKitDetector;
+import io.github.xalsace.qqbypass.utils.HookUtils;
 
 /**
  * DexKit-based Runtime Monitor Bypass

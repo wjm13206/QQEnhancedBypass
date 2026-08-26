@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.hooks;
+package io.github.xalsace.qqbypass.hooks;
 
 import android.os.Build;
 
@@ -15,9 +15,9 @@ import java.lang.reflect.Member;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.github.qqenhanced.bypass.XposedEntry;
-import io.github.qqenhanced.bypass.config.HookConfig;
-import io.github.qqenhanced.bypass.detector.DexKitDetector;
+import io.github.xalsace.qqbypass.XposedEntry;
+import io.github.xalsace.qqbypass.config.HookConfig;
+import io.github.xalsace.qqbypass.detector.DexKitDetector;
 
 /**
  * DexKit-based Device Info Consistency Protection

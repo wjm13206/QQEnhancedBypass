@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass;
+package io.github.xalsace.qqbypass;
 
 import android.util.Log;
 

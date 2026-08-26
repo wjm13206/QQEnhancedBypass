@@ -1,4 +1,4 @@
-package io.github.qqenhanced.bypass.config;
+package io.github.xalsace.qqbypass.config;
 
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
