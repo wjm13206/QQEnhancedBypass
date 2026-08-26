@@ -6,6 +6,24 @@ android {
     namespace 'io.github.qqenhanced.bypass'
     compileSdk 34
 
+    // 签名配置从 keystore.properties 读取（该文件已 gitignore，密钥不进版本库）。
+    // 复制 keystore.properties.example 为 keystore.properties 并填入自己的密钥即可。
+    signingConfigs {
+        mySign {
+            def ksPropsFile = rootProject.file("keystore.properties")
+            if (ksPropsFile.exists()) {
+                def ksProps = new Properties()
+                ksPropsFile.withInputStream { ksProps.load(it) }
+                storeFile file(ksProps['storeFile'])
+                storePassword ksProps['storePassword']
+                keyAlias ksProps['keyAlias']
+                keyPassword ksProps['keyPassword']
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "io.github.qqenhanced.bypass"
         minSdk 26
