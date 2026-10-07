@@ -60,8 +60,14 @@ jobs:
       - name: Install Android SDK packages
         if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
-          echo "y" | sdkmanager --licenses > /dev/null
-          sdkmanager --install \
+          # runner 自带 SDK 但 sdkmanager 不在 PATH，用完整路径调用
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -name sdkmanager -type f | head -n 1)"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          echo "y" | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" --install \
             "platform-tools" \
             "platforms;android-${{ env.COMPILE_SDK }}" \
             "build-tools;${{ env.BUILD_TOOLS_VERSION }}" \
