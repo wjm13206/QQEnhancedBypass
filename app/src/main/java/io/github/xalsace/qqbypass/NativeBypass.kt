@@ -1,7 +1,5 @@
 package io.github.xalsace.qqbypass
 
-import android.util.Log
-
 /**
  * JNI bridge for native hooks
  *
@@ -10,8 +8,6 @@ import android.util.Log
  */
 object NativeBypass {
 
-    private const val TAG = "NativeBypass"
-
     private var libraryLoaded = false
 
     init {
@@ -19,16 +15,16 @@ object NativeBypass {
             // 先初始化 ByteHook 的 AAR（会加载 libbytehook.so）
             try {
                 com.bytedance.android.bytehook.ByteHook.init()
-                Log.i(TAG, "ByteHook AAR initialized")
+                XposedEntry.log("ByteHook AAR initialized")
             } catch (t: Throwable) {
-                Log.w(TAG, "ByteHook.init() failed, native hooks may not work: ${t.message}")
+                XposedEntry.logWarn("ByteHook.init() failed, native hooks may not work: ${t.message}")
             }
 
             System.loadLibrary("native-bypass")
             libraryLoaded = true
-            Log.i(TAG, "Native library loaded successfully")
+            XposedEntry.log("Native library loaded successfully")
         } catch (e: UnsatisfiedLinkError) {
-            Log.e(TAG, "Failed to load native library", e)
+            XposedEntry.logError("Failed to load native library", e)
             libraryLoaded = false
         }
     }
@@ -44,15 +40,18 @@ object NativeBypass {
      */
     fun initNativeHooks() {
         if (!libraryLoaded) {
-            Log.e(TAG, "Native library not loaded, cannot init hooks")
+            XposedEntry.logError(
+                "Native library not loaded, cannot init hooks",
+                IllegalStateException("native-bypass not loaded")
+            )
             return
         }
 
         try {
             initNativeHooksNative()
-            Log.i(TAG, "Native hooks initialization started")
+            XposedEntry.log("Native hooks initialization started")
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to init native hooks", t)
+            XposedEntry.logError("Failed to init native hooks", t)
         }
     }
 
@@ -67,7 +66,7 @@ object NativeBypass {
         return try {
             isHooksInstalledNative()
         } catch (t: Throwable) {
-            Log.e(TAG, "Failed to check hook status", t)
+            XposedEntry.logError("Failed to check hook status", t)
             false
         }
     }
@@ -99,7 +98,7 @@ object NativeBypass {
         try {
             notifyDetectionNative(event, data)
         } catch (t: Throwable) {
-            Log.w(TAG, "Failed to notify native layer: ${t.message}")
+            XposedEntry.logWarn("Failed to notify native layer: ${t.message}")
         }
     }
 

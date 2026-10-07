@@ -31,6 +31,7 @@ class XposedEntry : XposedModule() {
         // PackageReadyParam has no process name; remember it here for the
         // main-process gate in onPackageReady.
         hostProcessName = param.processName
+        instance = this
     }
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
@@ -191,12 +192,31 @@ class XposedEntry : XposedModule() {
         @Volatile
         private var hostProcessName: String? = null
 
+
+        @Volatile
+        private var instance: XposedEntry? = null
+
         fun log(message: String) {
-            Log.i(TAG, message)
+            val m = instance
+            if (m != null) m.log(Log.INFO, TAG, message)
+            else Log.i(TAG, message)
+        }
+
+        fun logWarn(message: String, t: Throwable? = null) {
+            val m = instance
+            if (m != null) {
+                if (t != null) m.log(Log.WARN, TAG, message, t)
+                else m.log(Log.WARN, TAG, message)
+            } else {
+                if (t != null) Log.w(TAG, message, t)
+                else Log.w(TAG, message)
+            }
         }
 
         fun logError(message: String, t: Throwable) {
-            Log.e(TAG, message, t)
+            val m = instance
+            if (m != null) m.log(Log.ERROR, TAG, message, t)
+            else Log.e(TAG, message, t)
         }
     }
 }

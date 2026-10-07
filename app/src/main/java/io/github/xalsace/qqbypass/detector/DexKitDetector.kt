@@ -1,7 +1,7 @@
 package io.github.xalsace.qqbypass.detector
 
 import android.content.Context
-import android.util.Log
+import io.github.xalsace.qqbypass.XposedEntry
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.FindMethod
 import org.luckypray.dexkit.query.matchers.MethodMatcher
@@ -437,6 +437,7 @@ object DexKitDetector {
     }
 
     private fun log(message: String) {
-        Log.i(TAG, "[$TAG] $message")
+        // 扫描结果是关键日志，不经过 VERBOSE 门控，直写 LSPosed 框架日志
+        XposedEntry.log("[$TAG] $message")
     }
 }

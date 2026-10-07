@@ -117,7 +117,10 @@ object HookUtils {
 
     fun log(message: String) {
         if (HookConfig.VERBOSE_LOGGING) {
-            Log.i(TAG, message)
+            // 优先写 LSPosed 框架日志（LSPosed 管理器可见），module 未初始化时回退 logcat
+            val m = module
+            if (m != null) m.log(Log.INFO, TAG, message)
+            else Log.i(TAG, message)
         }
     }
 }
