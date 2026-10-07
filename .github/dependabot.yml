@@ -1,0 +1,24 @@
+# 每周自动检查更新，保持 Actions 与 Gradle 依赖为最新
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '02:00'
+      timezone: 'Asia/Shanghai'
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: 'gradle'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '02:00'
+      timezone: 'Asia/Shanghai'
+    groups:
+      gradle-deps:
+        patterns: ['*']

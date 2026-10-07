@@ -1,0 +1,123 @@
+# Android 构建（AGP 9.4 / Gradle 9.8 / JDK 17 / NDK + CMake）
+#
+# 版本说明（均为各仓库当前最新稳定大版本，Dependabot 每周自动跟进）：
+# - actions/checkout@v7、actions/setup-java@v6、actions/cache@v6、
+#   actions/upload-artifact@v6、gradle/actions/setup-gradle@v6
+name: Android Build
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+# 同分支重复触发时取消旧的排队任务，节省 CI 分钟数
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  COMPILE_SDK: '36'
+  BUILD_TOOLS_VERSION: '36.0.0'
+  NDK_VERSION: '29.0.14206865'
+  CMAKE_VERSION: '3.22.1'
+  GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.configuration-cache=true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: 'none'
+
+      - name: Cache Android SDK packages
+        uses: actions/cache@v6
+        id: sdk-cache
+        with:
+          path: |
+            ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+            ${{ env.ANDROID_SDK_ROOT }}/cmake/${{ env.CMAKE_VERSION }}
+          key: sdk-${{ runner.os }}-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}
+          restore-keys: |
+            sdk-${{ runner.os }}-
+
+      - name: Install Android SDK packages
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "y" | sdkmanager --licenses > /dev/null
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-${{ env.COMPILE_SDK }}" \
+            "build-tools;${{ env.BUILD_TOOLS_VERSION }}" \
+            "ndk;${{ env.NDK_VERSION }}" \
+            "cmake;${{ env.CMAKE_VERSION }}"
+
+
+      - name: Use official Gradle distribution in CI
+        run: sed -i 's#https://mirrors.cloud.tencent.com/gradle/#https://services.gradle.org/#' gradle/wrapper/gradle-wrapper.properties
+
+
+        
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: enhanced
+          cache-write-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) && github.event_name != 'workflow_dispatch' }}
+
+      - name: Write local.properties (SDK/NDK)
+        run: |
+          printf 'sdk.dir=%s\nndk.dir=%s/ndk/%s\n' \
+            "$ANDROID_SDK_ROOT" "$ANDROID_SDK_ROOT" "$NDK_VERSION" > local.properties
+          chmod +x gradlew
+
+      - name: Build Debug & Release APK
+        run: ./gradlew assembleDebug assembleRelease --build-cache --parallel --stacktrace
+
+      - name: Show outputs
+        if: always()
+        run: find app/build/outputs -type f | sort
+
+      # ---- 产物上传 ----
+      - name: Upload Debug APK
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: app-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Release APK
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: app-release-${{ github.sha }}
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ProGuard mapping
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: mapping-${{ github.sha }}
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+          retention-days: 30
