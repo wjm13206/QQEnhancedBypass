@@ -45,7 +45,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: ${{ env.JAVA_VERSION }}
-          cache: 'none'
 
       - name: Cache Android SDK packages
         uses: actions/cache@v6
