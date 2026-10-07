@@ -60,8 +60,10 @@ jobs:
           restore-keys: |
             sdk-${{ runner.os }}-
 
+      # 注意：此步骤必须每次都执行，不能用 cache-hit 跳过——缓存只覆盖 ndk/cmake，
+      # 而 runner 每次都是全新环境，platforms/build-tools 必须现装；
+      # sdkmanager --install 是幂等的，已安装的包会直接跳过，不会浪费时间。
       - name: Install Android SDK packages
-        if: steps.sdk-cache.outputs.cache-hit != 'true'
         run: |
           # runner 自带 SDK 但 sdkmanager 不在 PATH，用完整路径调用
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
