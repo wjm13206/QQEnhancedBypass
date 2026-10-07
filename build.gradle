@@ -1,7 +1,7 @@
 // Top-level build file
+// AGP 9 内置 Kotlin，不再需要 kotlin-android 插件（同时声明会构建失败）
 plugins {
-    id 'com.android.application' version '8.0.2' apply false
-    id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+    alias(libs.plugins.android.application) apply false
 }
 
 task clean(type: Delete) {

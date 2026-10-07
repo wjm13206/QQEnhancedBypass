@@ -1,11 +1,10 @@
 plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
+    alias(libs.plugins.android.application)
 }
 
 android {
     namespace 'io.github.xalsace.qqbypass'
-    compileSdk 34
+    compileSdk 36
 
     // 签名配置从 keystore.properties 读取（该文件已 gitignore，密钥不进版本库）。
     // 复制 keystore.properties.example 为 keystore.properties 并填入自己的密钥即可。
@@ -28,7 +27,7 @@ android {
     defaultConfig {
         applicationId "io.github.xalsace.qqbypass"
         minSdk 26
-        targetSdk 34
+        targetSdk 36
         versionCode 1
         versionName "1.0.9"
 
@@ -70,12 +69,17 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = '11'
+    // AGP 9 内置 Kotlin：kotlinOptions 已移除，用顶层 kotlin.compilerOptions；
+    // jvmTarget 默认跟随 targetCompatibility（11），此处显式声明
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
 
     // libxposed 新 API 用 META-INF/xposed/* 声明模块入口，合并进 APK 并排除其他 resources
-    packagingOptions {
+    // AGP 9 已移除 packagingOptions，用 packaging 代替
+    packaging {
         resources {
             merges += "META-INF/xposed/*"
             excludes += "**"
@@ -86,18 +90,18 @@ android {
 dependencies {
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
     // libxposed 现代 API 102（替代旧 de.robv.android.xposed:api:82，与旧 API 不可混用）
-    compileOnly 'io.github.libxposed:api:102.0.0'
+    compileOnly libs.libxposed.api
     // libxposed 方法签名上的注解（NonNull/Nullable），编译期解析用
-    compileOnly 'androidx.annotation:annotation:1.5.0'
+    compileOnly libs.androidx.annotation
 
     // ByteHook - 字节跳动 PLT hook 框架（预编译 AAR，含 prefab 供 CMake 使用）
-    implementation 'com.bytedance:bytehook:1.0.2'
+    implementation libs.bytehook
 
     // DexKit - 高性能 dex 字节码搜索库，用于动态定位混淆后的检测点
-    implementation 'org.luckypray:dexkit:2.0.0'
+    implementation libs.dexkit
 
     // Kotlin 标准库 - DexKit 的 POM 把它声明为 runtime 作用域，不进编译 classpath，
     // 从 Java 调用 DexKit 时 javac 无法解析其方法签名里的 kotlin.Unit / Function1，
-    // 故显式引入（编译 + 运行都需要）。版本与 Kotlin 插件（1.9.22）对齐。
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
+    // 故显式引入（编译 + 运行都需要）。版本与 Kotlin 插件对齐，见 libs.versions.toml。
+    implementation libs.kotlin.stdlib
 }

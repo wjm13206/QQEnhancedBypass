@@ -1,0 +1,20 @@
+[versions]
+# AGP 9.4 要求 Gradle 9.6.0+、JDK 17、Build Tools 36
+agp = "9.4.1"
+# AGP 9 内置 Kotlin（KGP 2.2.10，9.4 仍是此版本），不再声明 kotlin-android 插件；
+# 此版本号仅用于 kotlin-stdlib 依赖。stdlib 高于内置编译器版本可正常运行。
+kotlin = "2.4.20"
+libxposed = "102.0.0"
+annotation = "1.11.0"
+bytehook = "1.1.2"
+dexkit = "2.3.0"
+
+[libraries]
+libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed" }
+androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
+bytehook = { module = "com.bytedance:bytehook", version.ref = "bytehook" }
+dexkit = { module = "org.luckypray:dexkit", version.ref = "dexkit" }
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
