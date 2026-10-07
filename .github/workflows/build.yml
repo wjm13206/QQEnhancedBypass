@@ -24,8 +24,10 @@ concurrency:
 
 env:
   JAVA_VERSION: '17'
-  COMPILE_SDK: '37'
-  BUILD_TOOLS_VERSION: '36.0.0'
+  # 注意：API 37 在 sdkmanager 远端的包名带小版本后缀（platforms;android-37.0，
+  # 目录为 platforms/android-37.0），用整数 37 会报 Failed to find package。
+  COMPILE_SDK: '37.0'
+  BUILD_TOOLS_VERSION: '37.0.0'
   NDK_VERSION: '28.2.13676358'
   CMAKE_VERSION: '3.22.1'
   GRADLE_VERSION: '9.8.0'
@@ -74,6 +76,13 @@ jobs:
             "build-tools;${{ env.BUILD_TOOLS_VERSION }}" \
             "ndk;${{ env.NDK_VERSION }}" \
             "cmake;${{ env.CMAKE_VERSION }}"
+          # AGP 的 compileSdk 37 / targetSdk 37 仍按 platforms/android-37 查找，
+          # 而 sdkmanager 安装的是 platforms/android-37.0，做兼容软链避免构建失败
+          if [ -d "$ANDROID_SDK_ROOT/platforms/android-37.0" ] && [ ! -e "$ANDROID_SDK_ROOT/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_SDK_ROOT/platforms/android-37"
+            echo "Created compat symlink: android-37 -> android-37.0"
+          fi
+          ls "$ANDROID_SDK_ROOT/platforms"
 
 
       - name: Setup Gradle
