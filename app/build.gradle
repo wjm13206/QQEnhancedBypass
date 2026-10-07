@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
@@ -66,16 +67,28 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+
+    // libxposed 新 API 用 META-INF/xposed/* 声明模块入口，合并进 APK 并排除其他 resources
+    packagingOptions {
+        resources {
+            merges += "META-INF/xposed/*"
+            excludes += "**"
+        }
     }
 }
 
 dependencies {
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
-    // 使用官方 Xposed API 仓库
-    compileOnly 'de.robv.android.xposed:api:82:sources'
-    compileOnly 'de.robv.android.xposed:api:82'
+    // libxposed 现代 API 102（替代旧 de.robv.android.xposed:api:82，与旧 API 不可混用）
+    compileOnly 'io.github.libxposed:api:102.0.0'
+    // libxposed 方法签名上的注解（NonNull/Nullable），编译期解析用
+    compileOnly 'androidx.annotation:annotation:1.5.0'
 
     // ByteHook - 字节跳动 PLT hook 框架（预编译 AAR，含 prefab 供 CMake 使用）
     implementation 'com.bytedance:bytehook:1.0.2'
@@ -85,6 +98,6 @@ dependencies {
 
     // Kotlin 标准库 - DexKit 的 POM 把它声明为 runtime 作用域，不进编译 classpath，
     // 从 Java 调用 DexKit 时 javac 无法解析其方法签名里的 kotlin.Unit / Function1，
-    // 故显式以 implementation 引入（编译 + 运行都需要）
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+    // 故显式引入（编译 + 运行都需要）。版本与 Kotlin 插件（1.9.22）对齐。
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
 }
